@@ -167,6 +167,26 @@ class ClaudePBrain:
         return data.get("result", "")
 
 
+def one_shot_claude(model: str, accounts: list, prompt: str) -> str:
+    """Single stateless claude -p call (used by the foreman/advisor)."""
+    import subprocess
+    env = {k: v for k, v in os.environ.items()
+           if k != "ANTHROPIC_API_KEY" and k != "CLAUDECODE"
+           and not k.startswith("CLAUDE_CODE_")}
+    for acct in accounts:
+        env["CLAUDE_CONFIG_DIR"] = os.path.expanduser(acct)
+        try:
+            out = subprocess.run(
+                ["claude", "-p", prompt, "--output-format", "json",
+                 "--model", model, "--max-turns", "4", "--disallowedTools", "*"],
+                capture_output=True, text=True, env=env, timeout=300)
+            if out.returncode == 0:
+                return json.loads(out.stdout).get("result", "")
+        except Exception:
+            continue
+    return ""
+
+
 def agent_loop(instance: FactorioInstance, idx: int, cfg: dict):
     name = cfg["name"]
     system = (
@@ -244,11 +264,32 @@ def agent_loop(instance: FactorioInstance, idx: int, cfg: dict):
                 obs = f"\nCurrent state:\n```\n{str(obs_out)[:1200]}\n```"
             except Exception:
                 pass
-            goal_nudge = ""
+            adv = cfg.get("advisor")
+            if adv and (step + 1) % adv.get("every", 8) == 0:
+                recent = "\n".join(
+                    m["content"][:400] for m in messages[-6:]
+                    if isinstance(m.get("content"), str))
+                advice = one_shot_claude(
+                    adv["model"], adv["accounts"],
+                    "You are a Factorio FOREMAN reviewing a worker agent's "
+                    "recent progress. Their goal: build the largest scoring "
+                    "factory (10 pts/entity + 1 pt/item crafted by machines). "
+                    f"Recent activity:\n{recent}\n\nLatest result:\n"
+                    f"{str(result)[:800]}\n\nGive 3 blunt, specific orders "
+                    "for what to do next to maximize score. Be concrete "
+                    "(what to build, where, how many).")
+                if advice:
+                    log(name, "advisor", advice)
+                    feedback_advice = f"\n\nFOREMAN REVIEW (follow these orders):\n{advice[:1200]}"
+                else:
+                    feedback_advice = ""
+            else:
+                feedback_advice = ""
+            goal_nudge = feedback_advice
             if (step + 1) % 8 == 0:
-                goal_nudge = ("\nZOOM OUT: reread PLAN.md. Is the factory "
-                              "actually growing? What would a speedrunner do "
-                              "next? Update PLAN.md, then act at scale.")
+                goal_nudge += ("\nZOOM OUT: reread PLAN.md. Is the factory "
+                               "actually growing? What would a speedrunner do "
+                               "next? Update PLAN.md, then act at scale.")
             feedback = (f"Step {step + 1}/{STEPS} executed.\n"
                         f"Output:\n```\n{result}\n```\n"
                         f"Production score: {score}{obs}{goal_nudge}")

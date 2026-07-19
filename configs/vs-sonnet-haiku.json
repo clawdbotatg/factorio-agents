@@ -1,0 +1,27 @@
+{
+  "agents": [
+    {
+      "name": "West Sonnet",
+      "brain": "claude-p",
+      "model": "sonnet",
+      "accounts": [
+        "~/.clawd-accounts/sub2",
+        "~/.clawd-accounts/slop"
+      ],
+      "persona": "You are WEST SONNET, competing head-to-head. Your territory is STRICTLY x < 0 (west of the north-south line at x=0). Build only there."
+    },
+    {
+      "name": "East Haiku",
+      "brain": "claude-p",
+      "model": "haiku",
+      "accounts": [
+        "~/.clawd-accounts/sub3",
+        "~/.clawd-accounts/ef"
+      ],
+      "persona": "You are EAST HAIKU, competing head-to-head. Your territory is STRICTLY x > 0 (east of the north-south line at x=0). Build only there."
+    }
+  ],
+  "shared_goal": "COMPETITION: you are two rival engineers in the SAME world. RULES: (1) build ONLY in your own territory (west: x<0, east: x>0) \u2014 resources in your half are yours; (2) NEVER touch, take from, or deconstruct anything in the opponent's half; (3) FINAL SCORE = 10 points per entity you have standing in your territory + 1 point per item your furnaces/assemblers have crafted, measured at the end. Fast mode is ON \u2014 build at maximum scale: drills, smelting columns, power, assemblers, belts. You may trash-talk via send_message(). The clock is running.",
+  "steps": 400,
+  "min_step_s": 8
+}
