@@ -1,0 +1,8 @@
+.venv/
+.env
+.fle/
+fle-patched-snapshot/
+arena-logs/
+*.log
+__pycache__/
+sprint-baseline.json

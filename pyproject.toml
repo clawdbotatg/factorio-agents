@@ -1,0 +1,16 @@
+[project]
+name = "factorio-agents"
+version = "0.1.0"
+description = "Run FLE agents in a shared Factorio world (see clawd-research/factorio-agent-interfaces/factorio-plan.md)"
+requires-python = ">=3.12,<3.13"
+dependencies = [
+    "factorio-learning-environment[eval,mcp]==0.4.3",
+    "psycopg2-binary>=2.9",
+    # FLE 0.4.3 imports `from a2a.types import TextPart`, removed in a2a-sdk 1.x
+    "a2a-sdk<1.0",
+]
+
+[tool.uv]
+# FLE hard-depends on psycopg2 (source-only, fails to link on macOS arm64);
+# psycopg2-binary provides the identical module as a prebuilt wheel.
+override-dependencies = ["psycopg2; sys_platform == 'never'"]
