@@ -27,6 +27,7 @@ the model do pathfinding or ratio math. Text observations beat vision.
 | File | What it holds |
 |---|---|
 | [RESEARCH.md](RESEARCH.md) | Full survey: 36 repos code-read, FLE paper + peer reviews, expertise-as-code (FactorioCalc, TAS routes, belt routers), ranked technique list |
+| [EVALUATION.md](EVALUATION.md) | Us vs the field: gap table, the bottleneck (with live run evidence), best-in-world additions, infinite-compute design |
 | [LEARNINGS.md](LEARNINGS.md) | Distilled rules: what the field learned + what our own runs taught us |
 | [ROADMAP.md](ROADMAP.md) | The master plan — eval phases + scaffold upgrades, sequenced, with status |
 | [EVAL-PLAN.md](EVAL-PLAN.md) | The measurement plan (scorecard → ledger → A/B → VS mode → league) |
