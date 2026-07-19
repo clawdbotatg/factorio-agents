@@ -218,6 +218,13 @@ def agent_loop(instance: FactorioInstance, idx: int, cfg: dict):
             score, _goal, result = instance.eval(code, agent_idx=idx,
                                                  timeout=STEP_TIMEOUT)
             log(name, "result", str(result))
+            try:
+                ec = int(instance.rcon_client.send_command(
+                    "/sc rcon.print(game.surfaces[1].count_entities_filtered{force='player'})"))
+            except Exception:
+                ec = None
+            log(name, "score", json.dumps(
+                {"step": step + 1, "score": score, "entities": ec}))
             obs = ""
             try:
                 _, _, obs_out = instance.eval(
@@ -290,8 +297,18 @@ def main():
     for i, t in enumerate(threads):
         t.start()
         time.sleep(20 * (i < len(threads) - 1))  # stagger the think-clocks
+    label = os.environ.get("RUN_LABEL", time.strftime("run-%m%d-%H%M"))
+    try:
+        from scorecard import snapshot as sc_snap
+        sc_snap(label + ":start")
+    except Exception as e:
+        print("scorecard start failed:", e)
     for t in threads:
         t.join()
+    try:
+        sc_snap(label + ":end")
+    except Exception as e:
+        print("scorecard end failed:", e)
     print("Arena run complete.")
 
 
