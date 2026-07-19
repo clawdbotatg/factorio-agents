@@ -64,6 +64,16 @@ MIN_STEP_S = 8            # sprint pacing: maximize build rate
 RCON = ("127.0.0.1", 27000)
 LOG_DIR = Path(__file__).parent / "arena-logs"
 
+# ARENA_CONFIG=<path.json> overrides any of: AGENTS, SHARED_GOAL, STEPS,
+# MIN_STEP_S — the experiment runner uses this to A/B without code edits.
+_cfg_path = os.environ.get("ARENA_CONFIG")
+if _cfg_path:
+    _cfg = json.loads(Path(_cfg_path).read_text())
+    AGENTS = _cfg.get("agents", AGENTS)
+    SHARED_GOAL = _cfg.get("shared_goal", SHARED_GOAL)
+    STEPS = _cfg.get("steps", STEPS)
+    MIN_STEP_S = _cfg.get("min_step_s", MIN_STEP_S)
+
 # --------------------------------------------------------------- runtime ----
 client = anthropic.Anthropic()
 LOG_DIR.mkdir(exist_ok=True)

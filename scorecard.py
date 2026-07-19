@@ -113,6 +113,31 @@ def fingerprint():
     return h
 
 
+VS_LUA = (
+    "/sc local function side(minx, maxx) "
+    "local n, crafted = 0, 0 "
+    "for _, e in pairs(game.surfaces[1].find_entities_filtered{force='player', "
+    "area={{minx,-500},{maxx,500}}}) do "
+    "if e.name ~= 'character' then n = n + 1 "
+    "if e.type == 'furnace' or e.type == 'assembling-machine' then "
+    "crafted = crafted + e.products_finished end end end "
+    "return {entities=n, crafted=crafted} end "
+    "rcon.print(helpers.table_to_json({west=side(-500,0), east=side(0,500)}))"
+)
+
+
+def vs():
+    c = rcon()
+    d = json.loads(c.send_command(VS_LUA))
+    for side_name in ("west", "east"):
+        sd = d.get(side_name) or {}
+        score = (sd.get("entities") or 0) * 10 + (sd.get("crafted") or 0)
+        d[side_name] = {**sd, "score": score}
+        print(f"{side_name.upper():>5}: entities={sd.get('entities',0):>4} "
+              f"crafted={sd.get('crafted',0):>6}  SCORE={score}")
+    return d
+
+
 if __name__ == "__main__":
     ap = argparse.ArgumentParser()
     sub = ap.add_subparsers(dest="cmd", required=True)
@@ -121,10 +146,13 @@ if __name__ == "__main__":
     s.add_argument("--note", default="")
     sub.add_parser("report")
     sub.add_parser("fingerprint")
+    sub.add_parser("vs")
     args = ap.parse_args()
     if args.cmd == "snapshot":
         snapshot(args.label, args.note)
     elif args.cmd == "report":
         report()
+    elif args.cmd == "vs":
+        vs()
     else:
         fingerprint()

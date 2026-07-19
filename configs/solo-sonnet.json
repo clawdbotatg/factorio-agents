@@ -1,0 +1,10 @@
+{
+  "agents": [{
+    "name": "Factory One",
+    "brain": "claude-p",
+    "model": "sonnet",
+    "accounts": ["~/.clawd-accounts/sub2", "~/.clawd-accounts/slop",
+                 "~/.clawd-accounts/clawd", "~/.clawd-accounts/sub4"],
+    "persona": "You are FACTORY ONE, a solo master engineer. Build the most advanced factory possible."
+  }]
+}
