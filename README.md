@@ -123,6 +123,7 @@ merge into the baseline config.
 | [TLDR.md](TLDR.md) | One-page orientation: what/why/status |
 | [RESEARCH.md](RESEARCH.md) | The field survey: 36 repos code-read, FLE paper + peer reviews, expertise-as-code, ranked technique list |
 | [FLE-USAGE.md](FLE-USAGE.md) | GitHub trace of how others build on FLE: middle-brain specimens, claudetorio arena, fork analysis, the unclaimed lane |
+| [STRATEGY.md](STRATEGY.md) | The Factorio Strategy Bible (no AI): phase model, ratio catalog, expert routes, measurement doctrine |
 | [LEARNINGS.md](LEARNINGS.md) | Distilled rules — what the field learned + what our own runs taught us |
 | [EVALUATION.md](EVALUATION.md) | Us vs the field: gap table, the bottleneck, best-in-world plan, infinite-compute design |
 | [ROADMAP.md](ROADMAP.md) | The master plan, phased and sequenced, with status |
