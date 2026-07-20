@@ -22,44 +22,23 @@ import time
 PRELUDE = r'''
 COAL_COLLECTORS = []  # (x, y) of furnaces that receive coal from coal drills
 
-# Legal-mode ClientBusy armor: a timed-out walk keeps running server-side and
-# every later call dies with "client is already busy". Wrap the primitives so
-# they WAIT for the in-flight action instead of failing (s1-batch2 finding).
-def _retry_busy(fn, tries=8, wait=4):
+# Legal-mode ClientBusy armor (s1-batch2 finding): a timed-out walk keeps
+# running server-side and later calls die with "client is already busy".
+# _b(fn, ...) waits out the in-flight action instead of failing. This is an
+# EXPLICIT wrapper, not a monkeypatch -- shadowing FLE's injected tool names
+# at prelude scope breaks their name resolution (s1-batch3: NameError on
+# every primitive).
+def _b(fn, *a, **k):
     last = None
-    for _ in range(tries):
+    for _ in range(8):
         try:
-            return fn()
+            return fn(*a, **k)
         except Exception as e:
             if "already busy" not in str(e):
                 raise
             last = e
-            sleep(wait)
+            sleep(4)
     raise last
-
-_PRIMITIVES = ["move_to", "harvest_resource", "insert_item", "extract_item",
-               "place_entity", "place_entity_next_to", "craft_item",
-               "connect_entities"]
-for _nm in _PRIMITIVES:
-    if f"_raw_{_nm}" in dir():
-        continue
-    try:
-        # Try to reference the primitive; if it exists, wrap it
-        exec(f"_raw_{_nm} = {_nm}\n"
-             f"def {_nm}(*a, **k):\n"
-             f"    return _retry_busy(lambda: _raw_{_nm}(*a, **k))",
-             globals(), locals())
-    except NameError:
-        # Primitive might be a method on self
-        try:
-            exec(f"_raw_{_nm} = self.{_nm}\n"
-                 f"def {_nm}(*a, **k):\n"
-                 f"    return _retry_busy(lambda: _raw_{_nm}(*a, **k))",
-                 globals(), locals())
-        except Exception:
-            pass
-    except Exception:
-        pass
 
 
 def _res(name):
@@ -86,15 +65,15 @@ def try_place(proto, pos, direction=None, sweep=14):
     offsets = [(0,0),(1,0),(-1,0),(0,1),(0,-1),(2,0),(-2,0),(0,2),(0,-2),
                (1,1),(-1,1),(1,-1),(-1,-1),(3,0),(-3,0),(0,3),(0,-3)][:sweep]
     try:
-        move_to(pos)
+        _b(move_to, pos)
     except Exception:
         pass
     for dx, dy in offsets:
         p = Position(x=pos.x + dx, y=pos.y + dy)
         try:
             if direction is not None:
-                return place_entity(proto, position=p, direction=direction)
-            return place_entity(proto, position=p)
+                return _b(place_entity, proto, position=p, direction=direction)
+            return _b(place_entity, proto, position=p)
         except Exception:
             continue
     return None
@@ -108,8 +87,8 @@ def sk_gather(stone=0, coal=0, iron=0, copper=0):
         for attempt in (1, 2):  # nearest() flakes right after world init
             try:
                 p = nearest(_res(name))
-                move_to(p)
-                harvest_resource(p, amt)
+                _b(move_to, p)
+                _b(harvest_resource, p, amt)
                 print(f"harvested {amt} {name}")
                 break
             except Exception as e:
@@ -127,13 +106,13 @@ def sk_smelt_bootstrap():
         if inv_count(proto) < need:
             try:
                 p = nearest(_res(res))
-                move_to(p)
-                harvest_resource(p, grab)
+                _b(move_to, p)
+                _b(harvest_resource, p, grab)
                 print(f"self-provisioned {grab} {res}")
             except Exception as e:
                 print(f"{res} self-provision fail: {str(e)[:60]}")
     try:
-        craft_item(Prototype.StoneFurnace, 3)
+        _b(craft_item, Prototype.StoneFurnace, 3)
         print("crafted 3 furnaces")
     except Exception as e:
         print("furnace craft fail:", str(e)[:90])
@@ -147,16 +126,16 @@ def sk_smelt_bootstrap():
     print(f"placed {len(placed)} bootstrap furnaces")
     for f in placed:
         try:
-            move_to(f.position)
-            insert_item(Prototype.Coal, f, quantity=10)
-            insert_item(Prototype.IronOre, f, quantity=24)
+            _b(move_to, f.position)
+            _b(insert_item, Prototype.Coal, f, quantity=10)
+            _b(insert_item, Prototype.IronOre, f, quantity=24)
         except Exception as e:
             print("feed fail:", str(e)[:70])
     sleep(25)
     for f in placed:
         try:
-            move_to(f.position)
-            got = extract_item(Prototype.IronPlate, f, quantity=48)
+            _b(move_to, f.position)
+            got = _b(extract_item, Prototype.IronPlate, f, quantity=48)
             print(f"extracted plates: {got}")
         except Exception as e:
             print("extract fail:", str(e)[:70])
@@ -176,12 +155,12 @@ def sk_mine_line(resource="iron", n=3):
     need = max(0, n - inv_count(Prototype.BurnerMiningDrill))
     if need:
         try:
-            craft_item(Prototype.BurnerMiningDrill, need)
+            _b(craft_item, Prototype.BurnerMiningDrill, need)
             print(f"crafted {need} drills")
         except Exception as e:
             print("drill craft fail:", str(e)[:90])
     try:
-        craft_item(Prototype.StoneFurnace, n)
+        _b(craft_item, Prototype.StoneFurnace, n)
     except Exception as e:
         print("furnace craft fail:", str(e)[:90])
     patch = nearest(_res(resource))
@@ -195,12 +174,12 @@ def sk_mine_line(resource="iron", n=3):
             continue
         placed += 1
         try:
-            insert_item(Prototype.Coal, d, quantity=8)
+            _b(insert_item, Prototype.Coal, d, quantity=8)
         except Exception:
             pass
         f = None
         try:
-            f = place_entity(Prototype.StoneFurnace, position=d.drop_position)
+            f = _b(place_entity, Prototype.StoneFurnace, position=d.drop_position)
         except Exception:
             pass
         if f:
@@ -208,7 +187,7 @@ def sk_mine_line(resource="iron", n=3):
                 COAL_COLLECTORS.append((round(f.position.x), round(f.position.y)))
             else:
                 try:
-                    insert_item(Prototype.Coal, f, quantity=8)
+                    _b(insert_item, Prototype.Coal, f, quantity=8)
                 except Exception:
                     pass
     print(f"placed {placed}/{n} drills with drop furnaces")
@@ -225,7 +204,7 @@ def sk_power():
                        (Prototype.SteamEngine, 2), (Prototype.Pipe, 10),
                        (Prototype.SmallElectricPole, 8)]:
         try:
-            craft_item(proto, qty)
+            _b(craft_item, proto, qty)
         except Exception as e:
             print(f"craft fail {proto}: {str(e)[:70]}")
     water = nearest(_res("water"))
@@ -235,10 +214,10 @@ def sk_power():
             try:
                 p = Position(x=water.x + dx, y=water.y + dy)
                 try:
-                    move_to(Position(x=p.x, y=p.y - 3))
+                    _b(move_to, Position(x=p.x, y=p.y - 3))
                 except Exception:
                     pass
-                pump = place_entity(Prototype.OffshorePump, position=p, direction=d)
+                pump = _b(place_entity, Prototype.OffshorePump, position=p, direction=d)
                 break
             except Exception:
                 continue
@@ -249,19 +228,19 @@ def sk_power():
         return
     print(f"pump at {pump.position}")
     try:
-        boiler = place_entity_next_to(Prototype.Boiler, pump.position,
+        boiler = _b(place_entity_next_to, Prototype.Boiler, pump.position,
                                       Direction.UP, spacing=2)
-        insert_item(Prototype.Coal, boiler, quantity=20)
-        connect_entities(pump, boiler, Prototype.Pipe)
+        _b(insert_item, Prototype.Coal, boiler, quantity=20)
+        _b(connect_entities, pump, boiler, Prototype.Pipe)
         prev = boiler
         engines = 0
         for _ in range(2):
             eng = None
             for d in (Direction.UP, Direction.RIGHT, Direction.LEFT, Direction.DOWN):
                 try:
-                    eng = place_entity_next_to(Prototype.SteamEngine,
+                    eng = _b(place_entity_next_to, Prototype.SteamEngine,
                                                prev.position, d, spacing=2)
-                    connect_entities(prev, eng, Prototype.Pipe)
+                    _b(connect_entities, prev, eng, Prototype.Pipe)
                     break
                 except Exception:
                     continue
@@ -276,7 +255,7 @@ def sk_power():
 def sk_expand_smelting(n=4):
     print(f"SKILL expand_smelting n={n}")
     try:
-        craft_item(Prototype.StoneFurnace, n)
+        _b(craft_item, Prototype.StoneFurnace, n)
     except Exception as e:
         print("craft fail:", str(e)[:80])
     ip = nearest(_res("iron"))
@@ -287,7 +266,7 @@ def sk_expand_smelting(n=4):
         if f:
             placed += 1
             try:
-                insert_item(Prototype.Coal, f, quantity=8)
+                _b(insert_item, Prototype.Coal, f, quantity=8)
             except Exception:
                 pass
     print(f"placed {placed} smelting furnaces (autopilot feeds them ore)")
@@ -299,7 +278,7 @@ def sk_craft(item="IronGearWheel", n=1):
         print(f"unknown prototype {item}")
         return
     try:
-        made = craft_item(proto, n)
+        made = _b(craft_item, proto, n)
         print(f"crafted {made}")
     except Exception as e:
         print("craft fail:", str(e)[:100])
@@ -310,8 +289,8 @@ def sk_keep_fed(radius=150):
     if inv_count(Prototype.Coal) < 15:
         try:
             p = nearest(_res("coal"))
-            move_to(p)
-            harvest_resource(p, 40)
+            _b(move_to, p)
+            _b(harvest_resource, p, 40)
             acts.append("mined 40 coal")
         except Exception as e:
             acts.append("coal restock fail " + str(e)[:40])
@@ -325,10 +304,10 @@ def sk_keep_fed(radius=150):
         try:
             nm = e.name
             if nm == "stone-furnace":
-                move_to(e.position)
+                _b(move_to, e.position)
                 if (round(e.position.x), round(e.position.y)) in collectors:
                     try:
-                        got = extract_item(Prototype.Coal, e, quantity=50)
+                        got = _b(extract_item, Prototype.Coal, e, quantity=50)
                         if got:
                             swept += 1
                     except Exception:
@@ -336,27 +315,27 @@ def sk_keep_fed(radius=150):
                     continue
                 if inv_count(Prototype.Coal) > 6:
                     try:
-                        insert_item(Prototype.Coal, e, quantity=4)
+                        _b(insert_item, Prototype.Coal, e, quantity=4)
                         fueled += 1
                     except Exception:
                         pass
                 for proto in (Prototype.IronPlate, Prototype.CopperPlate):
                     try:
-                        got = extract_item(proto, e, quantity=50)
+                        got = _b(extract_item, proto, e, quantity=50)
                         if got:
                             swept += 1
                     except Exception:
                         pass
                 if inv_count(Prototype.IronOre) > 40:
                     try:
-                        insert_item(Prototype.IronOre, e, quantity=15)
+                        _b(insert_item, Prototype.IronOre, e, quantity=15)
                     except Exception:
                         pass
             elif nm in ("burner-mining-drill", "boiler", "burner-inserter"):
                 if inv_count(Prototype.Coal) > 6:
-                    move_to(e.position)
+                    _b(move_to, e.position)
                     try:
-                        insert_item(Prototype.Coal, e, quantity=4)
+                        _b(insert_item, Prototype.Coal, e, quantity=4)
                         fueled += 1
                     except Exception:
                         pass
