@@ -37,13 +37,27 @@ def _retry_busy(fn, tries=8, wait=4):
             sleep(wait)
     raise last
 
-for _nm in ("move_to", "harvest_resource", "insert_item", "extract_item",
-            "place_entity", "place_entity_next_to", "craft_item",
-            "connect_entities"):
-    if _nm in dir() and f"_raw_{_nm}" not in dir():
+_PRIMITIVES = ["move_to", "harvest_resource", "insert_item", "extract_item",
+               "place_entity", "place_entity_next_to", "craft_item",
+               "connect_entities"]
+for _nm in _PRIMITIVES:
+    if f"_raw_{_nm}" in dir():
+        continue
+    try:
+        # Try to reference the primitive; if it exists, wrap it
         exec(f"_raw_{_nm} = {_nm}\n"
              f"def {_nm}(*a, **k):\n"
              f"    return _retry_busy(lambda: _raw_{_nm}(*a, **k))")
+    except NameError:
+        # Primitive might be a method on self
+        try:
+            exec(f"_raw_{_nm} = self.{_nm}\n"
+                 f"def {_nm}(*a, **k):\n"
+                 f"    return _retry_busy(lambda: _raw_{_nm}(*a, **k))")
+        except Exception:
+            pass
+    except Exception:
+        pass
 
 def _res(name):
     m = {"iron": "IronOre", "copper": "CopperOre", "coal": "Coal",
@@ -308,7 +322,7 @@ def sk_keep_fed(radius=150):
         try:
             nm = e.name
             if nm == "stone-furnace":
-                move_to(e.position)
+                self.move_to(e.position)
                 if (round(e.position.x), round(e.position.y)) in collectors:
                     try:
                         got = extract_item(Prototype.Coal, e, quantity=50)
