@@ -59,6 +59,7 @@ SHARED_GOAL = (
 
 STEPS = 400               # think→act cycles per agent
 STEP_TIMEOUT = 60         # seconds per code execution
+FAST = True               # False = legal-player physics: walking, real craft times
 MAX_HISTORY = 40          # messages kept per agent conversation
 MIN_STEP_S = 8            # sprint pacing: maximize build rate
 RCON = ("127.0.0.1", 27000)
@@ -73,6 +74,7 @@ if _cfg_path:
     SHARED_GOAL = _cfg.get("shared_goal", SHARED_GOAL)
     STEPS = _cfg.get("steps", STEPS)
     MIN_STEP_S = _cfg.get("min_step_s", MIN_STEP_S)
+    FAST = _cfg.get("fast", FAST)
 
 # --------------------------------------------------------------- runtime ----
 client = anthropic.Anthropic()
@@ -320,7 +322,7 @@ def main():
         address=RCON[0],
         tcp_port=RCON[1],
         num_agents=n,
-        fast=True,   # SPRINT: instant actions, maximum build rate
+        fast=FAST,   # True: instant actions; False: legal-player physics
         peaceful=True,
         # ARENA_KEEP_WORLD=1 -> relaunch without wiping what's been built
         clear_entities=not os.environ.get("ARENA_KEEP_WORLD"),
@@ -345,6 +347,19 @@ def main():
             time.sleep(6)
 
     threading.Thread(target=render_loop, daemon=True, name="render").start()
+    if os.environ.get("ARENA_WAIT_FOR_PLAYER"):
+        print("WAITING for a human player to connect before launching agents…",
+              flush=True)
+        while True:
+            try:
+                n = int(instance.rcon_client.send_command(
+                    "/sc rcon.print(#game.connected_players)"))
+                if n > 0:
+                    break
+            except Exception:
+                pass
+            time.sleep(3)
+        print("PLAYER CONNECTED — launching agents!", flush=True)
     threads = [
         threading.Thread(target=agent_loop, args=(instance, i, cfg),
                          daemon=True, name=cfg["name"])

@@ -40,14 +40,17 @@ def inv_count(proto):
     return 0
 
 def try_place(proto, pos, direction=None, sweep=14):
+    # walk to the area ONCE, then try nearby spots from where we stand —
+    # every candidate is within build reach, so no per-attempt walking
+    # (matters in legal-player mode where movement takes real time)
     offsets = [(0,0),(1,0),(-1,0),(0,1),(0,-1),(2,0),(-2,0),(0,2),(0,-2),
                (1,1),(-1,1),(1,-1),(-1,-1),(3,0),(-3,0),(0,3),(0,-3)][:sweep]
+    try:
+        move_to(pos)
+    except Exception:
+        pass
     for dx, dy in offsets:
         p = Position(x=pos.x + dx, y=pos.y + dy)
-        try:
-            move_to(p)
-        except Exception:
-            pass
         try:
             if direction is not None:
                 return place_entity(proto, position=p, direction=direction)
@@ -232,7 +235,7 @@ def sk_craft(item="IronGearWheel", n=1):
         print("craft fail:", str(e)[:100])
     print(inspect_inventory())
 
-def sk_keep_fed():
+def sk_keep_fed(radius=150):
     acts = []
     if inv_count(Prototype.Coal) < 15:
         try:
@@ -243,7 +246,7 @@ def sk_keep_fed():
         except Exception as e:
             acts.append("coal restock fail " + str(e)[:40])
     try:
-        ents = get_entities(radius=150)
+        ents = get_entities(radius=radius)
     except Exception:
         ents = []
     fueled = swept = 0
@@ -308,13 +311,15 @@ print("PRELUDE LOADED — skills:", [k for k in dir() if k.startswith("sk_")])
 
 # ---------------------------------------------------------- controller ------
 SKILLS = {  # name -> (timeout_s, allowed arg keys)
-    "gather":          (100, {"stone", "coal", "iron", "copper"}),
-    "smelt_bootstrap": (110, set()),
-    "mine_line":       (140, {"resource", "n"}),
-    "power":           (140, set()),
-    "expand_smelting": (110, {"n"}),
-    "craft":           (90,  {"item", "n"}),
-    "keep_fed":        (110, set()),
+    # timeouts sized for legal-player mode (fast=False): walking between
+    # patches and real craft times make every skill several times slower
+    "gather":          (280, {"stone", "coal", "iron", "copper"}),
+    "smelt_bootstrap": (280, set()),
+    "mine_line":       (340, {"resource", "n"}),
+    "power":           (340, set()),
+    "expand_smelting": (280, {"n"}),
+    "craft":           (220, {"item", "n"}),
+    "keep_fed":        (280, {"radius"}),
 }
 
 DEFAULT_PLAN = [
@@ -369,8 +374,10 @@ def _parse_plan(text: str):
         data = json.loads(re.sub(r"```(?:json)?|```", "", text[m:text.rfind("}") + 1]))
     except Exception:
         return None, None
+    if "priorities" not in data:
+        return None, None
     plan = []
-    for item in data.get("priorities", []):
+    for item in data.get("priorities") or []:
         name = item.get("skill")
         if name not in SKILLS:
             continue
@@ -378,7 +385,8 @@ def _parse_plan(text: str):
         allowed = SKILLS[name][1]
         plan.append({"skill": name,
                      "args": {k: v for k, v in args.items() if k in allowed}})
-    return (plan or None), data.get("note")
+    # an explicit empty list is a legal strategy: "just run keep_fed"
+    return plan, data.get("note")
 
 
 def _invocation(item) -> str:
@@ -398,6 +406,16 @@ def run_skills_agent(instance, idx: int, cfg: dict, shared_goal: str,
     inline_prelude = "PRELUDE LOADED" not in str(out) or "Error" in str(out)[:80]
     if inline_prelude:
         log(name, "prelude", "namespace persistence unclear — inlining prelude per skill")
+
+    home = cfg.get("home")
+    if home:
+        try:
+            instance.eval(
+                f"move_to(Position(x={home[0]}, y={home[1]}))\n"
+                f"print('at home sector {home}')", agent_idx=idx, timeout=60)
+            log(name, "home", str(home))
+        except Exception as e:
+            log(name, "home", f"move failed: {e}")
 
     state = {"queue": list(DEFAULT_PLAN), "inflight": False, "last_plan": 0.0}
     lock = threading.Lock()
@@ -427,7 +445,7 @@ def run_skills_agent(instance, idx: int, cfg: dict, shared_goal: str,
                 reply = brain.think(status)
                 log(name, "thought", reply)
                 plan, note = _parse_plan(reply)
-                if plan:
+                if plan is not None:
                     with lock:
                         state["queue"] = plan
                     log(name, "plan", json.dumps(
@@ -448,7 +466,9 @@ def run_skills_agent(instance, idx: int, cfg: dict, shared_goal: str,
         with lock:
             item = state["queue"].pop(0) if state["queue"] else None
         if item is None:
-            item = {"skill": "keep_fed", "args": {}}
+            item = {"skill": "keep_fed",
+                    "args": ({"radius": cfg["sweep_radius"]}
+                             if cfg.get("sweep_radius") else {})}
         inv = _invocation(item)
         code = inv if not inline_prelude else PRELUDE + "\n" + inv
         timeout = SKILLS[item["skill"]][0]
@@ -471,7 +491,7 @@ def run_skills_agent(instance, idx: int, cfg: dict, shared_goal: str,
             {"step": step, "score": score, "entities": ec,
              "skill": item["skill"]}))
         if (not state["inflight"]
-                and time.time() - state["last_plan"] > 90):
+                and time.time() - state["last_plan"] > cfg.get("plan_every_s", 90)):
             plan_async(build_status(last_result, score))
         time.sleep(1)
     log(name, "done", f"completed {max_steps} skill steps")

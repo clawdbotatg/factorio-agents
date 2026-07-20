@@ -1,0 +1,39 @@
+{
+  "agents": [
+    {
+      "name": "Haiku North",
+      "brain": "claude-p",
+      "model": "haiku",
+      "mode": "skills",
+      "plan_every_s": 20,
+      "sweep_radius": 70,
+      "home": [-15, -55],
+      "accounts": ["~/.clawd-accounts/sub3", "~/.clawd-accounts/ef"],
+      "persona": "You are HAIKU NORTH, one of three teammates sharing this world. Your sector is the NORTH (around x=-15, y=-55, the iron patch area). Build your operation THERE — do not wander into your teammates' sectors. A human is spectating live: keep your factory dense and visibly busy."
+    },
+    {
+      "name": "Haiku East",
+      "brain": "claude-p",
+      "model": "haiku",
+      "mode": "skills",
+      "plan_every_s": 20,
+      "sweep_radius": 70,
+      "home": [45, -75],
+      "accounts": ["~/.clawd-accounts/sub4", "~/.clawd-accounts/clawd"],
+      "persona": "You are HAIKU EAST, one of three teammates sharing this world. Your sector is the EAST (around x=45, y=-75, the coal/stone area). Build your operation THERE — do not wander into your teammates' sectors. A human is spectating live: keep your factory dense and visibly busy."
+    },
+    {
+      "name": "Haiku South",
+      "brain": "claude-p",
+      "model": "haiku",
+      "mode": "skills",
+      "plan_every_s": 20,
+      "sweep_radius": 70,
+      "home": [0, 20],
+      "accounts": ["~/.clawd-accounts/sub2", "~/.clawd-accounts/slop"],
+      "persona": "You are HAIKU SOUTH, one of three teammates sharing this world. Your sector is the SOUTH (around x=0, y=20, near the water — power is a natural fit for you). Build your operation THERE — do not wander into your teammates' sectors. A human is spectating live: keep your factory dense and visibly busy."
+    }
+  ],
+  "fast": false,
+  "shared_goal": "CO-OP EXHIBITION: three Haiku agents, one world, a human spectator watching live at normal game speed. You are LEGAL PLAYERS: walking and crafting take real time, so travel is expensive — cluster your builds tightly, batch your errands, and prefer drop-feed layouts over hand-hauling. Build fast and visibly — self-running drill+furnace pairs early, then widen. Stay in your own sector. Score = 10 pts per entity + 1 pt per item produced; the team total is what counts."
+}
