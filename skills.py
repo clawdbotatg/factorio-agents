@@ -47,17 +47,20 @@ for _nm in _PRIMITIVES:
         # Try to reference the primitive; if it exists, wrap it
         exec(f"_raw_{_nm} = {_nm}\n"
              f"def {_nm}(*a, **k):\n"
-             f"    return _retry_busy(lambda: _raw_{_nm}(*a, **k))")
+             f"    return _retry_busy(lambda: _raw_{_nm}(*a, **k))",
+             globals(), locals())
     except NameError:
         # Primitive might be a method on self
         try:
             exec(f"_raw_{_nm} = self.{_nm}\n"
                  f"def {_nm}(*a, **k):\n"
-                 f"    return _retry_busy(lambda: _raw_{_nm}(*a, **k))")
+                 f"    return _retry_busy(lambda: _raw_{_nm}(*a, **k))",
+                 globals(), locals())
         except Exception:
             pass
     except Exception:
         pass
+
 
 def _res(name):
     m = {"iron": "IronOre", "copper": "CopperOre", "coal": "Coal",
@@ -322,7 +325,7 @@ def sk_keep_fed(radius=150):
         try:
             nm = e.name
             if nm == "stone-furnace":
-                self.move_to(e.position)
+                move_to(e.position)
                 if (round(e.position.x), round(e.position.y)) in collectors:
                     try:
                         got = extract_item(Prototype.Coal, e, quantity=50)
