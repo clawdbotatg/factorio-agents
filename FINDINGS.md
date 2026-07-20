@@ -120,6 +120,18 @@ that scored 4/100 was the one whose brain worked — it recovered from the
 gather race on its own ("world may be initializing — retry"), which no other
 lane got the chance to do.
 
+**s1-batch2** (hardened accounts/retries/terse-brain, still 0/6.4/0/0):
+brains now all alive and re-planning sensibly every ~20–30 s — the loss moved
+down a layer into the body. Two killers in the lane-C trace: (1) the
+**ClientBusy cascade** — in legal mode a timed-out walk keeps running
+server-side, so every following primitive call (feed the furnace, gather)
+dies with "client is already busy"; furnaces sat placed-but-unfed → 0 plates.
+(2) **one hung skill ate 428 s of the 300 s window** (timeouts sized for
+hour-long matches). Fixes: prelude now wraps all primitives in a
+wait-and-retry busy armor; per-config `timeout_cap` (150 s for stages); the
+render thread (another source of concurrent client calls) is off for stage
+runs (`ARENA_NO_RENDER=1`).
+
 ## Open items
 
 - Legal-mode skill layer: belt/inserter logistics skills (hand-hauling

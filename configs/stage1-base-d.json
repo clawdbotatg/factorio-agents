@@ -11,7 +11,8 @@
         "~/.clawd-accounts/slop",
         "~/.clawd-accounts/sub4"
       ],
-      "persona": "You are the strategy brain of a solo Factorio speedrunner in the POWER phase. Ruthless priority: self-running drill+furnace pairs on iron and coal first, then power before the clock runs out."
+      "persona": "You are the strategy brain of a solo Factorio speedrunner in the POWER phase. Ruthless priority: self-running drill+furnace pairs on iron and coal first, then power before the clock runs out.",
+      "timeout_cap": 150
     }
   ],
   "fast": false,

@@ -349,7 +349,10 @@ def main():
                     pass
             time.sleep(6)
 
-    threading.Thread(target=render_loop, daemon=True, name="render").start()
+    if not os.environ.get("ARENA_NO_RENDER"):
+        # render issues game calls on the agent namespaces — a standing
+        # source of ClientBusy collisions in legal mode; stage evals skip it
+        threading.Thread(target=render_loop, daemon=True, name="render").start()
     if os.environ.get("ARENA_WAIT_FOR_PLAYER"):
         print("WAITING for a human player to connect before launching agents…",
               flush=True)

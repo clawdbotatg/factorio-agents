@@ -22,6 +22,29 @@ import time
 PRELUDE = r'''
 COAL_COLLECTORS = []  # (x, y) of furnaces that receive coal from coal drills
 
+# Legal-mode ClientBusy armor: a timed-out walk keeps running server-side and
+# every later call dies with "client is already busy". Wrap the primitives so
+# they WAIT for the in-flight action instead of failing (s1-batch2 finding).
+def _retry_busy(fn, tries=8, wait=4):
+    last = None
+    for _ in range(tries):
+        try:
+            return fn()
+        except Exception as e:
+            if "already busy" not in str(e):
+                raise
+            last = e
+            sleep(wait)
+    raise last
+
+for _nm in ("move_to", "harvest_resource", "insert_item", "extract_item",
+            "place_entity", "place_entity_next_to", "craft_item",
+            "connect_entities"):
+    if _nm in dir() and f"_raw_{_nm}" not in dir():
+        exec(f"_raw_{_nm} = {_nm}\n"
+             f"def {_nm}(*a, **k):\n"
+             f"    return _retry_busy(lambda: _raw_{_nm}(*a, **k))")
+
 def _res(name):
     m = {"iron": "IronOre", "copper": "CopperOre", "coal": "Coal",
          "stone": "Stone", "water": "Water", "wood": "Wood"}
@@ -342,7 +365,9 @@ print("PRELUDE LOADED — skills:", [k for k in dir() if k.startswith("sk_")])
 # ---------------------------------------------------------- controller ------
 SKILLS = {  # name -> (timeout_s, allowed arg keys)
     # timeouts sized for legal-player mode (fast=False): walking between
-    # patches and real craft times make every skill several times slower
+    # patches and real craft times make every skill several times slower.
+    # Short stage sprints should cap these via cfg "timeout_cap" — one hung
+    # skill ate 428s of a 300s stage window in s1-batch2.
     "gather":          (280, {"stone", "coal", "iron", "copper"}),
     "smelt_bootstrap": (280, set()),
     "mine_line":       (340, {"resource", "n"}),
@@ -506,7 +531,8 @@ def run_skills_agent(instance, idx: int, cfg: dict, shared_goal: str,
                              if cfg.get("sweep_radius") else {})}
         inv = _invocation(item)
         code = inv if not inline_prelude else PRELUDE + "\n" + inv
-        timeout = SKILLS[item["skill"]][0]
+        timeout = min(SKILLS[item["skill"]][0],
+                      cfg.get("timeout_cap") or 10 ** 6)
         log(name, "code", inv)
         try:
             score, _, result = instance.eval(code, agent_idx=idx,

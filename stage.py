@@ -165,11 +165,18 @@ def run_lane(i: int, cfg_path: str, label: str, minutes: int, results: dict,
     port = BASE_PORT + i
     stem = Path(cfg_path).stem
     lane_label = f"{label}:L{i}:{stem}"
+    # rotate the lane's agent ledgers so per-run analysis is clean
+    cfg = json.loads((HERE / cfg_path).read_text())
+    for a in cfg["agents"]:
+        slug = a["name"].replace(" ", "_").lower()
+        f = HERE / "arena-logs" / f"{slug}.jsonl"
+        if f.exists():
+            f.rename(HERE / "arena-logs" / f"{slug}.{int(time.time())}.old")
     tl_path = TL_DIR / f"{label}_L{i}_{stem}.timeline.jsonl"
     log_path = TL_DIR / f"{label}_L{i}_{stem}.arena.log"
     env = {**os.environ, "PATH": ENV_PATH, "FLE_SPECTATOR_MODE": "1",
            "ARENA_CONFIG": cfg_path, "ARENA_RCON_PORT": str(port),
-           "RUN_LABEL": lane_label}
+           "ARENA_NO_RENDER": "1", "RUN_LABEL": lane_label}
     if keep_world:
         env["ARENA_KEEP_WORLD"] = "1"
     proc = subprocess.Popen(["uv", "run", "python", "arena.py"], cwd=HERE,
