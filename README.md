@@ -7,7 +7,9 @@ sessions that write Python programs against the FLE API every step — wrapped i
 our own measurement stack: pinned map seed, run scorecard, per-decision ledger,
 A/B experiment runner, live head-to-head VS mode, and a spectator dashboard.
 
-**Goal: play Factorio better than anyone else in the world.**
+**Goal: play Factorio better than anyone else in the world — and make it
+watchable** ("eval LLMs for entertainment": live matches where AI agents and
+newly-released models compete against human and AI benchmarks).
 
 That's less crazy than it sounds. The FLE leaderboard still holds only the
 authors' original March-2025 entries — **no external scaffold has ever posted a

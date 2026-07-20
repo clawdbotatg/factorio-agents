@@ -4,7 +4,11 @@
 runs headless Factorio; Claude brains (`claude -p` subscription sessions with
 account rotation) write Python programs against the FLE API each step; a HUD,
 watchdog, scorecard, and per-step decision ledger watch the runs.
-**Goal: play Factorio better than anyone else in the world.**
+**Goal: play Factorio better than anyone else in the world** — and make it
+watchable: the stated product framing is **"eval LLMs for entertainment"**
+(live matches where AI agents and new models compete against human and AI
+benchmarks —
+[the tweet](https://x.com/austingriffith/status/2079063047507955978)).
 
 **Why that's achievable:** the FLE leaderboard still holds only the authors'
 original March-2025 entries — **no external scaffold has ever posted a result**.

@@ -95,11 +95,29 @@ Self-programming with hot-reload into the running server; persistent
 - **Alva-Buddha/FactorioAgent**: aspirational FLE scaffolding, never ran.
 - **factoriommo-agent**: 2017 human-event infra, not AI.
 
-## 3. Claudetorio (bigsky77) — the production FLE arena that already existed
+## 3. Claudetorio (bigsky77 + pop_eax) — the production FLE arena that already existed
 
 A live-streamed public "AI plays Factorio" service (Jan–Mar 2026, dormant
-since 2026-03-24; ran at app.claudetorio.ai). Architecture worth knowing
-because it's the closest thing to our arena at production scale:
+since 2026-03-24; [claudetorio.ai](https://www.claudetorio.ai/) is still up —
+"Live-streamed AI evaluation for complex reasoning tasks"). **Team of two**:
+bigsky77 (@BigSky_7) owns/leads it; the majority contributor — including the
+entire VTuber streaming pipeline — is pop_eax
+([github.com/pop-eax](https://github.com/pop-eax)). Verified in the commit
+history; note we found no evidence the stream ever publicly aired (the RTMP →
+Twitch/pump pipeline exists in code; no discoverable channel or VODs).
+
+**2026-07-19 update — this went from research to a warm intro**: the user
+knows BigSky personally (DM history back to the eth.build days) and publicly
+reached out
+([tweet](https://x.com/austingriffith/status/2079063047507955978)), framing
+the shared direction as **"eval LLMs for entertainment"** — live streams
+where AI agents and newly-released models compete at Factorio against human
+and AI benchmarks. The complementary seam if a collab forms: they own the
+viewport (broker, public slots, spectating, streaming), we own the scoring
+(pinned seed, A/B runner, decision ledger, VS mode).
+
+Architecture worth knowing because it's the closest thing to our arena at
+production scale:
 
 - FastAPI **broker** orchestrates Docker slots; run-workers import FLE's
   `FactorioGymEnv` directly; every step lands in a Postgres **step ledger**
@@ -196,3 +214,5 @@ FLE**:
   `lveillard/factorio-ai-companion`, `npiron/FactorioLab`, `ammar1510/ReLax`,
   maxrenke/upMKuhn forks.
 - Periodic: Epoch AI FLE page; FLE leaderboard for first external entries.
+- Follow up on the BigSky DM thread (claudetorio: why dormant, 2.0 migration
+  attempts, whether the stream aired, collab/head-to-head interest).
