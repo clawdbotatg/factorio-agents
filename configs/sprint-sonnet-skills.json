@@ -1,0 +1,12 @@
+{
+  "agents": [{
+    "name": "Sprint Skills",
+    "brain": "claude-p",
+    "model": "sonnet",
+    "mode": "skills",
+    "accounts": ["~/.clawd-accounts/sub2", "~/.clawd-accounts/slop",
+                 "~/.clawd-accounts/clawd", "~/.clawd-accounts/sub4"],
+    "persona": "You are SPRINT SKILLS, the strategy brain of a solo speedrunner. 10 minutes of wall clock (~8x game speed). Ruthlessly prioritize whatever compounds: self-running mine lines early, then widen."
+  }],
+  "shared_goal": "10-MINUTE SPRINT from an empty-handed crash landing. Score = 10 pts per entity built + 1 pt per item produced by machines. Get self-running drill+furnace pairs up as fast as possible, then widen."
+}

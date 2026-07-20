@@ -188,6 +188,11 @@ def one_shot_claude(model: str, accounts: list, prompt: str) -> str:
 
 
 def agent_loop(instance: FactorioInstance, idx: int, cfg: dict):
+    if cfg.get("mode") == "skills":
+        # LLM plans priorities; a scripted autopilot executes (skills.py)
+        from skills import run_skills_agent
+        return run_skills_agent(instance, idx, cfg, SHARED_GOAL,
+                                ClaudePBrain, log, max_steps=STEPS)
     name = cfg["name"]
     system = (
         instance.get_system_prompt(idx)

@@ -1,0 +1,12 @@
+{
+  "agents": [{
+    "name": "Sprint Plain",
+    "brain": "claude-p",
+    "model": "sonnet",
+    "accounts": ["~/.clawd-accounts/sub2", "~/.clawd-accounts/slop",
+                 "~/.clawd-accounts/clawd", "~/.clawd-accounts/sub4"],
+    "persona": "You are SPRINT PLAIN, a solo speedrunner. You have exactly 10 minutes of wall-clock time (the world runs ~8x real time). Every program must buy score NOW — burner drills and furnaces running beat any long-term plan you will never finish."
+  }],
+  "shared_goal": "10-MINUTE SPRINT from an empty-handed crash landing. Score = 10 pts per entity built + 1 pt per item produced by machines. Get self-running drill+furnace pairs up as fast as possible, then widen. There is no time for assemblers unless everything else is already running.",
+  "min_step_s": 5
+}
