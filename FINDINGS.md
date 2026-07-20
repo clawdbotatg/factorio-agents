@@ -92,6 +92,34 @@ per sweep, so drills starved between rounds. Zero brain errors across
 logistics is the highest-leverage skill missing — hand-hauling stops
 scaling exactly like it does for human players.
 
+## Staged segment evals (SEGMENTS.md) — s1-batch1, 2026-07-20
+
+First batch of concurrent 5-min legal-mode Stage-1 ("Power", WR split 4:31)
+sprints: 4 solo-Haiku MB-0 lanes on 4 parallel cluster instances via
+`stage.py`. Result: scores 0 / 4 / 0 / 0 of 100 — and four load-bearing
+failure modes, none of them "the model is dumb":
+
+1. **Two lanes ran brainless**: sub3/ef/austinmax pools were at their weekly
+   limit; every `claude -p` returned rc=1 and the lane fell back to autopilot
+   defaults forever. Fix: `stage.py` now preflights every account pool and
+   aborts if a lane has no live pool.
+2. **First-skill race**: `nearest()` fails with "Could not find nearby
+   resource" right after world init; the opening gather died instantly and
+   poisoned the whole craft chain (no stone → no furnaces → no plates → no
+   drills/pump). One retry 20 s later succeeds. Fix: gather retries; skills
+   self-provision missing inputs one hop deep.
+3. **keep_fed idle spin**: with nothing built, the idle filler no-oped ~130×
+   at 1.4 s/eval — 4 of the 5 minutes doing literally nothing. Fix: idle
+   no-op → 6 s backoff + immediate replan request.
+4. **Haiku thinks too long for a 20 s cadence**: 26–58 s per plan, 2–5k
+   output tokens of reasoning for a 6-line JSON. Fix: `MAX_THINKING_TOKENS=0`
+   in the brain env (probe: 25 tokens, 3.8 s) + BE TERSE prompt rule.
+
+Meta-lesson, same as ever: harness failures dominate model quality. The lane
+that scored 4/100 was the one whose brain worked — it recovered from the
+gather race on its own ("world may be initializing — retry"), which no other
+lane got the chance to do.
+
 ## Open items
 
 - Legal-mode skill layer: belt/inserter logistics skills (hand-hauling

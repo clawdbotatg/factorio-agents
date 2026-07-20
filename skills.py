@@ -65,17 +65,33 @@ def sk_gather(stone=0, coal=0, iron=0, copper=0):
                       ("iron", iron), ("copper", copper)]:
         if not amt:
             continue
-        try:
-            p = nearest(_res(name))
-            move_to(p)
-            harvest_resource(p, amt)
-            print(f"harvested {amt} {name}")
-        except Exception as e:
-            print(f"gather {name} fail: {str(e)[:80]}")
+        for attempt in (1, 2):  # nearest() flakes right after world init
+            try:
+                p = nearest(_res(name))
+                move_to(p)
+                harvest_resource(p, amt)
+                print(f"harvested {amt} {name}")
+                break
+            except Exception as e:
+                print(f"gather {name} fail (try {attempt}): {str(e)[:80]}")
+                if attempt == 1:
+                    sleep(3)
     print(inspect_inventory())
 
 def sk_smelt_bootstrap():
     print("SKILL smelt_bootstrap")
+    # self-provision one hop: the skill acquires its own inputs if short
+    for res, proto, need, grab in [("stone", Prototype.Stone, 10, 14),
+                                   ("coal", Prototype.Coal, 10, 20),
+                                   ("iron", Prototype.IronOre, 24, 30)]:
+        if inv_count(proto) < need:
+            try:
+                p = nearest(_res(res))
+                move_to(p)
+                harvest_resource(p, grab)
+                print(f"self-provisioned {grab} {res}")
+            except Exception as e:
+                print(f"{res} self-provision fail: {str(e)[:60]}")
     try:
         craft_item(Prototype.StoneFurnace, 3)
         print("crafted 3 furnaces")
@@ -108,6 +124,15 @@ def sk_smelt_bootstrap():
 
 def sk_mine_line(resource="iron", n=3):
     print(f"SKILL mine_line {resource} n={n}")
+    plates = inv_count(Prototype.IronPlate)
+    craftable = inv_count(Prototype.BurnerMiningDrill) + plates // 9
+    if craftable == 0:
+        print(f"BLOCKED mine_line: 0 drills craftable (iron plates={plates}, "
+              "~9 needed per drill). Run smelt_bootstrap / gather first.")
+        return
+    if n > craftable:
+        print(f"capping n {n} -> {craftable} (plates limit)")
+        n = craftable
     need = max(0, n - inv_count(Prototype.BurnerMiningDrill))
     if need:
         try:
@@ -151,6 +176,11 @@ def sk_mine_line(resource="iron", n=3):
 
 def sk_power():
     print("SKILL power")
+    plates = inv_count(Prototype.IronPlate)
+    if plates < 30:
+        print(f"BLOCKED power: need ~35 iron plates (have {plates}). "
+              "Smelt more first (mine_line iron / smelt_bootstrap).")
+        return
     for proto, qty in [(Prototype.OffshorePump, 1), (Prototype.Boiler, 1),
                        (Prototype.SteamEngine, 2), (Prototype.Pipe, 10),
                        (Prototype.SmallElectricPole, 8)]:
@@ -362,7 +392,9 @@ Reply with ONLY a JSON object, no prose, no code fences:
 {"note": "<one-line strategy>",
  "priorities": [{"skill": "gather", "args": {"stone": 15, "coal": 25, "iron": 30}}, ...]}
 Queue 3-6 priorities. Each reply REPLACES the remaining queue. You are
-re-consulted with fresh status every ~90 seconds while the autopilot works."""
+re-consulted with fresh status every ~90 seconds while the autopilot works.
+BE TERSE: note under 15 words, no prose, no reasoning outside the JSON —
+long replies delay your own next decision."""
 
 
 def _parse_plan(text: str):
@@ -417,7 +449,8 @@ def run_skills_agent(instance, idx: int, cfg: dict, shared_goal: str,
         except Exception as e:
             log(name, "home", f"move failed: {e}")
 
-    state = {"queue": list(DEFAULT_PLAN), "inflight": False, "last_plan": 0.0}
+    state = {"queue": list(cfg.get("default_plan") or DEFAULT_PLAN),
+             "inflight": False, "last_plan": 0.0}
     lock = threading.Lock()
     history = []
     t0 = time.time()
@@ -432,8 +465,10 @@ def run_skills_agent(instance, idx: int, cfg: dict, shared_goal: str,
         with lock:
             qtxt = json.dumps(state["queue"])
         done = "; ".join(history[-8:])
+        pace = cfg.get("pace_oracle")
+        pace_line = f"\nPACE ORACLE:\n{pace}\n" if pace else ""
         return (f"STATUS at minute {(time.time() - t0) / 60:.1f} "
-                f"(production score {score}):\n{str(st)[:1200]}\n"
+                f"(production score {score}):{pace_line}\n{str(st)[:1200]}\n"
                 f"Recently executed: {done or 'nothing yet'}\n"
                 f"Last skill output:\n{str(last_result)[:700]}\n"
                 f"Remaining queue (you may replace it): {qtxt}\n"
@@ -490,10 +525,17 @@ def run_skills_agent(instance, idx: int, cfg: dict, shared_goal: str,
         log(name, "score", json.dumps(
             {"step": step, "score": score, "entities": ec,
              "skill": item["skill"]}))
+        # idle no-op detection: an empty queue + a keep_fed that found nothing
+        # to do means the body is spinning — back off and replan NOW instead
+        # of burning eval spam (batch-1 failure mode: 130 no-op sweeps)
+        idle_noop = (item["skill"] == "keep_fed"
+                     and "fueled=0 swept=0" in last_result)
+        due = time.time() - state["last_plan"] > cfg.get("plan_every_s", 90)
         if (not state["inflight"]
-                and time.time() - state["last_plan"] > cfg.get("plan_every_s", 90)):
+                and (due or (idle_noop
+                             and time.time() - state["last_plan"] > 10))):
             plan_async(build_status(last_result, score))
-        time.sleep(1)
+        time.sleep(6 if idle_noop else 1)
     log(name, "done", f"completed {max_steps} skill steps")
 
 

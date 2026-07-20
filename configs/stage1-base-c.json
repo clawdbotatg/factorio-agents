@@ -1,0 +1,20 @@
+{
+  "agents": [
+    {
+      "name": "S1 Base C",
+      "brain": "claude-p",
+      "model": "haiku",
+      "mode": "skills",
+      "plan_every_s": 20,
+      "sweep_radius": 60,
+      "accounts": [
+        "~/.clawd-accounts/clawd",
+        "~/.clawd-accounts/sub2"
+      ],
+      "persona": "You are the strategy brain of a solo Factorio speedrunner in the POWER phase. Ruthless priority: self-running drill+furnace pairs on iron and coal first, then power before the clock runs out."
+    }
+  ],
+  "fast": false,
+  "steps": 400,
+  "shared_goal": "STAGE 1 \u2014 POWER SPRINT (5 minutes, legal player: walking and crafting take real time, travel is expensive \u2014 cluster builds tightly, batch errands). You are graded like a speedrunner's first split: burner drills mining iron+coal with drop-feed furnaces, bootstrap smelting, then POWER ONLINE (offshore pump + boiler + steam engines, fueled and generating) before the 5-minute mark. World-record pace hits power at 4:31. Rubric: power online is worth the most, then burner drills placed (up to 20), then iron plates produced. Do NOT wander: pick the nearest iron/coal/water and commit."
+}

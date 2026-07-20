@@ -62,7 +62,7 @@ STEP_TIMEOUT = 60         # seconds per code execution
 FAST = True               # False = legal-player physics: walking, real craft times
 MAX_HISTORY = 40          # messages kept per agent conversation
 MIN_STEP_S = 8            # sprint pacing: maximize build rate
-RCON = ("127.0.0.1", 27000)
+RCON = ("127.0.0.1", int(os.environ.get("ARENA_RCON_PORT", "27000")))
 LOG_DIR = Path(__file__).parent / "arena-logs"
 
 # ARENA_CONFIG=<path.json> overrides any of: AGENTS, SHARED_GOAL, STEPS,
@@ -137,6 +137,9 @@ class ClaudePBrain:
                if k != "ANTHROPIC_API_KEY" and k != "CLAUDECODE"
                and not k.startswith("CLAUDE_CODE_")}
         env["CLAUDE_CONFIG_DIR"] = self.accounts[self.acct_i]
+        # planning replies must be fast+terse: measured 26-58s thinks with
+        # 2-5k reasoning tokens for a 6-line JSON plan (s1-batch1)
+        env["MAX_THINKING_TOKENS"] = "0"
         # pure text brain: no Claude Code tools (a tool call would burn
         # turns and never yield the final answer), a few turns of headroom
         cmd = ["claude", "-p", prompt, "--output-format", "json",

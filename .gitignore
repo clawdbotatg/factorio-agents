@@ -6,3 +6,4 @@ arena-logs/
 *.log
 __pycache__/
 sprint-baseline.json
+stage-logs/
