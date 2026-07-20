@@ -81,10 +81,21 @@ and every match ties; under-script and you're measuring typing speed.
   scaling). First legal-mode run: trio-haiku co-op, 3 zoned agents,
   20 s plan cadence.
 
+## Legal-mode result (trio-haiku, 3 zoned agents, 64 min, 20 s plans)
+
+85 entities (matches the 10-min teleport sprint) but only **300 iron
+plates vs 3,065 in 10 sprint minutes — a ~60× production-throughput drop**,
+and power was never reached. Building survives legality (one-time walk);
+*feeding* does not (recurring walk): keep_fed went from seconds to minutes
+per sweep, so drills starved between rounds. Zero brain errors across
+~1,100 Haiku planning calls. Conclusion: in legal mode, belt/inserter
+logistics is the highest-leverage skill missing — hand-hauling stops
+scaling exactly like it does for human players.
+
 ## Open items
 
-- Legal-mode skill layer: belt/inserter logistics skills (hand-hauling is
-  now the worst option); measure the legal-mode score penalty (predicted 3–5×).
+- Legal-mode skill layer: belt/inserter logistics skills (hand-hauling
+  measured as the bottleneck — see legal-mode result above).
 - Placement crowding: repeated mine_lines on one patch run out of spots
   (Fable: 17 calls → 36 entities). Needs patch-aware row layout.
 - Periodic score=0 / entities=None RCON blips pollute ledgers — filter or fix.
