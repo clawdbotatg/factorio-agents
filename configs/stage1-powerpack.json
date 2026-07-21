@@ -70,7 +70,11 @@
           }
         },
         {
-          "skill": "power",
+          "skill": "power_craft",
+          "args": {}
+        },
+        {
+          "skill": "power_build",
           "args": {}
         },
         {

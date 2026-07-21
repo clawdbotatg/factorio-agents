@@ -242,15 +242,20 @@ def sk_mine_line(resource="iron", n=3):
     print(f"placed {placed}/{n} drills with drop furnaces")
     print(inspect_inventory())
 
-def sk_power():
-    print("SKILL power")
+def sk_power_craft():
+    """Power quantum 1: craft pump + boiler + 2 engines + pipes near base.
+    Cheap, no long walks. Follow with power_build."""
+    print("SKILL power_craft")
     plates = inv_count(Prototype.IronPlate)
     have_parts = (inv_count(Prototype.OffshorePump)
                   and inv_count(Prototype.Boiler)
-                  and inv_count(Prototype.SteamEngine))
-    if plates < 30 and not have_parts:
-        print(f"BLOCKED power: need ~35 iron plates (have {plates}). "
-              "Smelt more first (mine_line iron / smelt_bootstrap).")
+                  and inv_count(Prototype.SteamEngine) >= 2)
+    if have_parts:
+        print("power parts already crafted — run power_build")
+        return
+    if plates < 30:
+        print(f"BLOCKED power_craft: need ~35 iron plates (have {plates}). "
+              "Smelt more first (bootstrap/mine_line + keep_fed).")
         return
     # boiler consumes a stone furnace — self-provision the stone if short
     if (not inv_count(Prototype.Boiler)
@@ -262,7 +267,7 @@ def sk_power():
             _b(harvest_resource, p, 8)
             print("self-provisioned 8 stone for the boiler")
         except Exception as e:
-            print("BLOCKED power: no stone for the boiler and stone "
+            print("BLOCKED power_craft: no stone for the boiler and "
                   f"self-provision failed: {str(e)[:60]}")
             return
     # NO electric poles: pump->boiler->engine needs none, and poles need
@@ -275,6 +280,20 @@ def sk_power():
             _b(craft_item, proto, qty)
         except Exception as e:
             print(f"craft fail {proto}: {str(e)[:70]}")
+    print(inspect_inventory())
+
+def sk_power_build():
+    """Power quantum 2: the water trek + placement chain. The ONLY long walk
+    in the power path, so a pathfinder wedge costs just this quantum."""
+    print("SKILL power_build")
+    if not (inv_count(Prototype.OffshorePump)
+            and inv_count(Prototype.Boiler)
+            and inv_count(Prototype.SteamEngine)):
+        print("BLOCKED power_build: parts missing — run power_craft first "
+              f"(pump={inv_count(Prototype.OffshorePump)} "
+              f"boiler={inv_count(Prototype.Boiler)} "
+              f"engines={inv_count(Prototype.SteamEngine)}).")
+        return
     water = nearest(_res("water"))
     pump = None
     for dx, dy in [(0,0),(1,0),(-1,0),(0,1),(0,-1),(2,0),(-2,0),(0,2),(0,-2)]:
@@ -440,7 +459,8 @@ SKILLS = {  # name -> (timeout_s, allowed arg keys)
     "bootstrap_place": (150, set()),
     "bootstrap_feed":  (120, set()),
     "mine_line":       (340, {"resource", "n"}),
-    "power":           (340, set()),
+    "power_craft":     (120, set()),
+    "power_build":     (240, set()),
     "expand_smelting": (280, {"n"}),
     "craft":           (220, {"item", "n"}),
     "keep_fed":        (280, {"radius"}),
@@ -458,7 +478,8 @@ DEFAULT_PLAN = [
     {"skill": "gather", "args": {"stone": 15}},
     {"skill": "mine_line", "args": {"resource": "iron", "n": 2}},
     {"skill": "keep_fed", "args": {}},
-    {"skill": "power", "args": {}},
+    {"skill": "power_craft", "args": {}},
+    {"skill": "power_build", "args": {}},
 ]
 
 CATALOG = """You are the STRATEGY BRAIN for a Factorio agent. You never write
@@ -478,8 +499,13 @@ SKILL CATALOG (args -> effect, rough prerequisites):
   each with a drop-feed furnace — a self-running mine+smelt line. Auto-crafts
   drills/furnaces first: needs ~9 iron plates + ~10 stone per drill.
   A coal mine_line's furnaces act as coal collectors the autopilot empties.
-- power {}: offshore pump + boiler + 2 steam engines, piped. Needs ~35 iron
-  plates, ~10 stone. Prereq for any electric machines later.
+- power_craft {}: craft pump + boiler + 2 steam engines + pipes near base.
+  Needs ~35 iron plates banked. Run before power_build.
+- power_build {}: walk to water and place pump->boiler->engines, piped and
+  coaled. Needs the parts from power_craft in inventory.
+RULE: a skill that prints BLOCKED is missing a prerequisite — queue the fix
+(smelt plates, gather stone), NOT the same skill again; immediate re-queues
+of a blocked skill are auto-deferred for 40s.
 - expand_smelting {n}: n extra furnaces near the iron patch; the autopilot
   feeds them from your ore inventory.
 - craft {item, n}: hand-craft any prototype by name (recursive — crafts
@@ -598,10 +624,21 @@ def run_skills_agent(instance, idx: int, cfg: dict, shared_goal: str,
                          name=f"{name}-planner").start()
 
     last_result = ""
+    blocked_at = {}  # skill -> time it last printed BLOCKED
     for step in range(1, max_steps + 1):
         with lock:
             item = state["queue"].pop(0) if state["queue"] else None
         if item is None:
+            item = {"skill": "keep_fed",
+                    "args": ({"radius": cfg["sweep_radius"]}
+                             if cfg.get("sweep_radius") else {})}
+        # BLOCKED cooldown: a skill that just reported a missing prerequisite
+        # gets deferred instead of spam-retried (batch-4: brains re-queued
+        # power 3-4x while plates smelted, wasting the body's time)
+        if time.time() - blocked_at.get(item["skill"], 0) < 40:
+            log(name, "defer",
+                f"{item['skill']} BLOCKED {time.time() - blocked_at[item['skill']]:.0f}s "
+                "ago — running keep_fed while its prerequisite catches up")
             item = {"skill": "keep_fed",
                     "args": ({"radius": cfg["sweep_radius"]}
                              if cfg.get("sweep_radius") else {})}
@@ -617,6 +654,8 @@ def run_skills_agent(instance, idx: int, cfg: dict, shared_goal: str,
             score, result = None, f"eval error: {e}"
         last_result = str(result)
         log(name, "result", last_result)
+        if "BLOCKED" in last_result:
+            blocked_at[item["skill"]] = time.time()
         ok = "Error" not in last_result[:200] and "error" not in last_result[:120]
         history.append(f"{inv} -> {'ok' if ok else 'FAIL'}")
         try:

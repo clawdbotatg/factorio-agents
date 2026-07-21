@@ -134,6 +134,21 @@ What the trio run + skills-mode A/Bs taught us the middle brain must do:
 - **body idle seconds** (gaps between skill executions — the metric MB-1 exists to kill)
 - brain-error / account-handoff count
 
+## 5.5 The script baseline (probe_skills.py, 2026-07-20)
+
+After the batch-1..3 harness fixes (entombment, busy-armor, quantization),
+the DEFAULT_PLAN alone — no LLM — passes S1 in legal mode at pinned 1×:
+**power online (pump + boiler + 2 engines) at ~2:54**, with 4 furnaces,
+2 drills on drop-furnaces, and 161 plates banked by 3:30. WR split is 4:31
+(with ~10× our drill count). This is the floor: **a middle-brain variant only
+earns credit for what it scores above the script**, and a brained lane that
+scores below it means the brain is subtracting value.
+
+Rubric caveat: `power_gen` (engines generating) needs an electric consumer,
+and every S1-reachable consumer needs copper/circuits — so in practice S1
+credit tops out at `power_built`. Next rubric rev should read boiler
+fuel-burn or engine steam instead.
+
 ## 6. Immediate queue
 
 1. **Batch 1 — variance baseline**: 4 lanes × MB-0 (solo Haiku, legal, S1,
