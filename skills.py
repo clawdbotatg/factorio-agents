@@ -540,22 +540,35 @@ print("PRELUDE LOADED — skills:", [k for k in dir() if k.startswith("sk_")])
 # each brained lane's workdir CLAUDE.md — the claude CLI auto-loads it, so
 # every brain "reads the bible". Route facts only, no recipe trivia (field
 # finding: wiki knowledge alone never helped; pacing + doctrine do).
-BIBLE_CARD = """# S1 pace card — distilled from the Strategy Bible
+BIBLE_CARD = """# S1 pace card — distilled from S1-BIBLE.md (numbers are env-verified)
 
-WR Any% splits (the yardstick): Power 4:31 | Intermediates 14:10 | Labs 17:26.
-At the 4:31 power split a WR run has ~35-40 burner drills across
-iron/copper/coal/stone, a powerplant running, a lab placed, and Automation
-already researching.
+WR yardstick: Power 4:31 (with ~35-40 drills, lab placed, Automation running).
 
-Route doctrine that wins:
-- Every build starts by adding miners. Drills are the only ore income;
-  a furnace without a drill feeding it is dead weight.
-- Keep the crafting queue full at all times — walking time is crafting time.
-- Nefrums burner-phase counts: 10 iron / 6 copper / 16 coal / 4 stone drills.
-- Power block: pump -> boiler -> 2 steam engines (one pump is never the
-  constraint in 2.0). Lab + Automation research immediately after power.
-- Buffer before big builds: banked plates are what make power and the lab
-  one-shot instead of drip-fed.
+COSTS (iron plates unless noted): drill+drop-furnace PAIR = 9 Fe + 10 stone.
+Power pack = 83 Fe (pump 7, boiler 4, engine 31 EACH, pipes) + 10 stone;
+1-engine minimum = 52 Fe. Lab = 42 Fe + 15 Cu. Automation = 10 packs
+(2 Fe + 1 Cu each, 5s craft). One engine powers 15 labs — build the second
+engine only when electric drills are coming.
+
+INCOME: a pair yields 0.25 plates/s forever; it repays its 9 Fe in ~40s and
+beats hand-mining (0.5 ore/s, occupies you) after just 30s of runtime.
+Marginal pairs: 1-6 return 3-8x by 5:00; 7-8 pay if placed before ~3:10;
+9+ pay only past the window — in a real match KEEP placing them.
+COAL: each pair burns ~3.6 coal/min — 1 coal pair per 4 other pairs, placed
+BEFORE the fleet starves.
+
+ROCKS: a huge rock = 24-50 stone AND 24-50 coal in 3s of mining (~50x
+faster than hand-mining, fully legal). Check for rocks near the route
+before committing to a stone-patch trip.
+
+ROUTE SHAPE (5-min window): rocks/stone first errand -> hand-mine ~26 iron
+while crafting furnaces -> 2 bootstrap furnaces + first pairs by ~1:45 ->
+6 iron pairs + 1 coal pair by ~2:45 -> bank 52+ Fe -> power ~3:45 ->
+2 copper pairs -> 10 green circuits -> lab -> Automation by 5:00.
+
+DOCTRINE: drills before power (economy funds the trophy, never the
+reverse). Batch errands by geography, not resource. Keep the craft queue
+full — walking time is crafting time. Banked plates make builds one-shot.
 """
 
 # ---------------------------------------------------------- controller ------

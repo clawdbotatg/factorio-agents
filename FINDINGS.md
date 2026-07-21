@@ -207,6 +207,28 @@ while drills-first lanes compound 30 → 122+. → **drills-first doctrine**
 added to the catalog; overnight wave 2 (24 rounds × 10 lanes) tests it plus
 the plan-cadence sweep (10s vs 20s vs 45s).
 
+## S1 bible built + three discoveries from ground-truthing (2026-07-20)
+
+[S1-BIBLE.md](S1-BIBLE.md): the first-five-minutes decision bible — RCON-
+verified recipe costs, marginal drop-pair payoff matrix (pairs 1–6 return
+3–8×, 9+ only pay past the window), coal budget (1 coal pair per 4 pairs),
+walk-cost table, map-reading rules. `bible_stats.py` regenerates its
+empirical tables from stage-runs.jsonl; the distilled BIBLE_CARD (auto-
+injected into brain workdirs) now carries the numbers. Three discoveries:
+
+1. **Rubric exploit live in the route search**: under match physics the
+   optimizer converged on a 0-drill power-rush (median 18.2 beats drilled
+   lanes) — 15 pts for power vs 1.5/drill misprices drills-as-capital in a
+   5-min window. Needs rubric v2 (weight drills ≥3 and/or gate power points
+   on ≥4 drills).
+2. **Craft-accounting anomaly**: power_built logged with ~24 plates produced
+   vs a ground-truthed 52-plate single-engine floor — FLE may be leaking
+   craft ingredients (silent physics cheat). Parity-audit before any
+   match-mode claim.
+3. **Seed 424242 has a huge-rock at (8,−80)** (24–50 stone + 24–50 coal, 3 s
+   mine, adjacent to iron) + two big-rocks near spawn — the WR's rock trick
+   is available and no skill uses it. sk_rocks is the top missing S1 skill.
+
 ## Open items
 
 - Legal-mode skill layer: belt/inserter logistics skills (hand-hauling
