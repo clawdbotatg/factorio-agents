@@ -378,6 +378,17 @@ Also fixed today: Docker Desktop's UDP proxy silently dies after repeated
 cluster cycling (TCP/RCON keeps working — check `lsof -iUDP:34197`, not
 `docker ps`); whitelist file can come up empty with enforcement on.
 
+## The 722 benchmark (2026-07-21 evening)
+
+First fair solo benchmark vs a human baseline — 1x pinned, 20 wall-minutes,
+match physics, unseen seed, post-dupe-fix: **bot 722 pts (16 built, 562
+plates) vs the human's race-4 588 (16 built, 428 plates)**. The morning
+number was 0; the afternoon number was 342 (later found to be measured
+under an accidental 8x time handicap — tick-clock referee on an unpinned
+world; wall-clock brains need wall-clock referees). Same entity count as
+the human, +31% plates: the drop-pair economy compounding per S1-BIBLE's
+payoff matrix. Caveats: n=1, ~2x variance band, solo-not-head-to-head.
+
 ## Open items
 
 - Legal-mode skill layer: belt/inserter logistics skills (hand-hauling
