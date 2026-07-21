@@ -151,6 +151,36 @@ drills-first shape — so STRATEGY.md's speedrun material becomes *more*
 load-bearing, and match-mode route search (§2, physics-neutral speedup only)
 is the search that matters for the product.
 
+### Seed policy (DECIDED 2026-07-20)
+
+- **Lab mode: pinned seeds.** A fixed seed is what makes relative
+  measurement work — keep 424242 as the regression baseline. But rotate a
+  small **lab seed pool** too: skills and routes are already quietly
+  overfitting to 424242's geography (`sk_gather` orders iron-first because
+  *this seed's* stone patch is the far one). Anything that only wins on one
+  map should die in the lab, not on match night.
+- **Match mode: random seed, rolled at match start, always recorded** in the
+  run log — random ≠ unreproducible; any match must be replayable and
+  verifiable. Competitors never see the seed in advance.
+- Random seeds are also what makes the brain earn its keep (§1): on a pinned
+  seed the best brain converges to the script; on an unseen map the route
+  becomes a *policy to adapt* — patch layout, water distance, rocks all
+  move — and Δ-over-script on random seeds is the brain's honest metric.
+
+### The three match formats
+
+1. **Competition** — bots race the same unseen seed (separate identical
+   worlds, or one shared world in VS mode). Same seed for all entrants:
+   it's a race, not a map lottery.
+2. **Co-op speedrun** — all bots on one team, one world, zoned roles
+   (miner / logistics / power), racing the clock. Each character
+   individually rule-bound; the superhuman part is coordination.
+3. **Co-op with the human** — bots join the user's game to help. Different
+   objective entirely: not "maximize score" but "take orders and be
+   useful" — the MB-6 standing-orders shape (human sets goals, bots run
+   them, interrupt only on exceptions), always at 1× (the speed watchdog
+   already pins this when a human connects).
+
 ## 7. The sequenced path to a full WR-pace run
 
 - **A (route engineering, now):** copper leg + lab + research + rock-mining
