@@ -40,7 +40,7 @@ SEED_PLAN = [
     {"skill": "power_build", "args": {}},
     {"skill": "mine_line", "args": {"resource": "copper", "n": 2}},
     {"skill": "keep_fed", "args": {}},
-    {"skill": "mine_line", "args": {"resource": "iron", "n": 3}},
+    {"skill": "mine_line", "args": {"resource": "iron", "n": 6}},
     {"skill": "keep_fed", "args": {}},
     {"skill": "lab", "args": {}},
     {"skill": "research", "args": {}},

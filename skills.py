@@ -157,7 +157,8 @@ def sk_gather(stone=0, coal=0, iron=0, copper=0):
                       ("stone", stone), ("copper", copper)]:
         if not amt:
             continue
-        for attempt in (1, 2):  # nearest() flakes right after world init
+        path_fails = 0
+        for attempt in (1, 2, 3):  # nearest()/path service flake transiently
             try:
                 p = nearest(_res(name))
                 _b(move_to, p)
@@ -167,12 +168,18 @@ def sk_gather(stone=0, coal=0, iron=0, copper=0):
             except Exception as e:
                 msg = str(e)
                 if "path" in msg.lower() or "Cannot move" in msg:
-                    # blocked terrain never fixes itself — don't re-walk it
-                    print(f"PATH BLOCKED to {name} — patch unreachable, "
-                          "pick another resource or use wood for fuel")
-                    break
+                    path_fails += 1
+                    # two strikes: single path errors are usually transient
+                    # (rematch: 5 false 'unreachable' reports on patches that
+                    # worked minutes later); only consecutive ones are terrain
+                    if path_fails >= 2:
+                        print(f"PATH BLOCKED to {name} (2 consecutive) — "
+                              "treat patch as unreachable; use wood for fuel")
+                        break
+                    sleep(3)
+                    continue
                 print(f"gather {name} fail (try {attempt}): {msg[:80]}")
-                if attempt == 1:
+                if attempt < 3:
                     sleep(3)
     print(inspect_inventory())
 
@@ -252,8 +259,17 @@ def sk_mine_line(resource="iron", n=3):
     furn_craftable = inv_count(Prototype.Stone) // 5
     furn_want = max(0, n - inv_count(Prototype.StoneFurnace))
     if furn_want > furn_craftable:
-        print(f"low stone: only {furn_craftable} drop furnaces craftable "
-              f"(want {furn_want}) — gather stone to fix")
+        # self-provision the missing stone (rematch: the stone economy
+        # starved every mine line while a human just went and got stone)
+        try:
+            p = nearest(_res("stone"))
+            _b(move_to, p)
+            _hv( p, (furn_want - furn_craftable) * 5 + 4)
+            furn_craftable = inv_count(Prototype.Stone) // 5
+            print(f"self-provisioned stone -> {furn_craftable} furnaces craftable")
+        except Exception as e:
+            print(f"low stone and stone trip failed ({str(e)[:50]}) — "
+                  f"placing {furn_craftable} drop furnaces only")
     if min(furn_want, furn_craftable):
         try:
             _b(craft_item, Prototype.StoneFurnace, min(furn_want, furn_craftable))
@@ -687,6 +703,10 @@ RULE: DRILLS FIRST. Drills are the only ore income — a furnace without a
 drill feeding it is dead weight, and plate production flatlines without
 drills (measured: lanes that built furnaces before drills froze at 30
 plates). Sequence: bootstrap -> drills -> more furnaces -> power.
+RULE: BATCH BIG. If the AFFORD line says 6 drills are craftable, order 6 —
+timid n=2 mine lines lose to a novice human hand-placing 15 (measured,
+live match). The skill caps itself to what's affordable; you never need
+to under-ask.
 - expand_smelting {n}: n extra furnaces near the iron patch; the autopilot
   feeds them from your ore inventory.
 - craft {item, n}: hand-craft any prototype by name (recursive — crafts
