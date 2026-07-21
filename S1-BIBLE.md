@@ -46,11 +46,20 @@ A drop-pair is the S1 unit of economy. Everything below prices in pairs.
 | **Lab** | 10 gear + 10 GC + 4 belt | **42 Fe + 15 Cu** |
 | Automation pack | 1 Cu plate + 1 gear (5 s craft) | 2 Fe + 1 Cu each; ×10 for the tech |
 
-> ⚠️ **Audit flag:** our runs have logged `power_built` with only ~24 plates
-> produced in-window — inconsistent with the 52-plate single-engine floor.
-> Either production stats are undercounting or FLE `craft_item` leaks
-> ingredients (a silent physics cheat). Match-mode parity audit must settle
-> this before any match-mode claim.
+> ✅ **Audit RESOLVED (2026-07-21):** the "power with 24 plates produced"
+> anomaly was an **item-duplication bug in FLE `extract_item`** — it
+> inserted the *requested* stack into the player while removing only what
+> the entity actually held, so every keep_fed sweep (quantity=50) minted
+> plates. Found red-handed (48 ore in → 100 plates swept), patched in the
+> live venv + snapshot, verified dead by `probe_dupe_audit.py` (request 50
+> → receive exactly the 6 real plates). `craft_item` is **conservative**
+> (verified: 31 plates → exactly 31 plates of parts) but its recursion
+> re-queues intermediates on retry — budget ~20% slack above the recipe
+> floors or an exact budget strands itself in parts. Full writeup:
+> `patches/extract-item-duplication.md`.
+> **All pre-fix production numbers (every era, both route-search nights)
+> are dupe-inflated** — treat §4's tables as strategy-ranking only until
+> regenerated from post-fix data.
 
 ### Rocks (the WR's opening trick — verified present on seed 424242)
 | Rock | Yield | Mine time |

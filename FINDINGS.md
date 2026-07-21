@@ -263,6 +263,34 @@ structural, and the next legal levers are identified:**
    we're legally slower); FLE walk is ~half vanilla speed. Fixing FLE-side
    walk speed UP to vanilla 8.9 tiles/s is parity, not cheating.
 
+## The duplication bug (2026-07-21) — the craft anomaly solved
+
+The S1-BIBLE §1 audit flag is resolved, and it was worse than suspected:
+**FLE `extract_item` was an item duplicator.** It inserted the *requested*
+stack into the player while removing only what the entity actually held
+(plus a 3–5× inflated availability count defeating the clamp) — so every
+keep_fed sweep (`quantity=50`) minted plates. Caught red-handed in
+route-g110:L0: fed 48 ore, swept exactly 100 plates, built power from them.
+
+- **Patched** (live venv + snapshot), **verified dead** by
+  `probe_dupe_audit.py`: request 50 → receive exactly the 6 real plates.
+  Writeup: `patches/extract-item-duplication.md`.
+- **`craft_item` is clean**: 31 plates → exactly 31 plates of parts,
+  conservation exact (vanilla begin_crafting underneath). One quirk: the
+  recursion re-queues intermediates on every retry, so an exact-budget
+  craft overcrafts parts and strands itself — keep ~20% slack over the
+  recipe floors (power pack: bank ~100 Fe, not 83).
+- **Blast radius: every production number ever recorded is inflated** —
+  all eras, both route-search nights (their routes optimized dupe-farming:
+  sweep early, sweep often). Night-2 search was stopped mid-run
+  (partial champions archived to `route-champions-night2-dupe.jsonl`) and
+  **relaunched under fixed physics** — the first-ever honest-economics
+  route search. Regenerate S1-BIBLE §4 from post-fix rows only.
+
+Meta-lesson (the strongest yet for the doctrine): the match-mode parity
+audit isn't paranoia — the first deep audit found an infinite-resource
+glitch that every prior result silently used.
+
 ## Open items
 
 - Legal-mode skill layer: belt/inserter logistics skills (hand-hauling
