@@ -291,6 +291,16 @@ Meta-lesson (the strongest yet for the doctrine): the match-mode parity
 audit isn't paranoia — the first deep audit found an infinite-resource
 glitch that every prior result silently used.
 
+## Kit-aware search (2026-07-21 morning, stopped at g60 by request)
+
+With starting-kit parity in place, the day search climbed champion median
+21.4 → **25.2 in 60 generations** — above the entire no-kit night's plateau
+(~23.5) in a quarter of the generations, confirming the kit as the biggest
+single legal lever found so far. Stopped before its 1× match validation
+(user request: CPU back + document); the champion lineage is preserved in
+`route-champions.jsonl` — next session: validate it at 1× `--tag match`,
+then continue from `route_search.py --hours N` (the champion file seeds it).
+
 ## Open items
 
 - Legal-mode skill layer: belt/inserter logistics skills (hand-hauling

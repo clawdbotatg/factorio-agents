@@ -43,7 +43,21 @@ the model do pathfinding or ratio math. Text observations beat vision.
 | `scorecard.py` / `decisions.py` | Run snapshots + per-decision Δscore ledger |
 | `arena-logs/<agent>-workdir/` | Each agent's CLAUDE.md playbook, PLAN.md, LESSONS.md |
 
-## Where we are / what's next
+## Where we are / what's next (2026-07-21)
+
+- ✅ **Staged evals + route search live** (SEGMENTS.md, WR-PACE.md): 5-min
+  Stage-1 tick-graded sprints, 10 concurrent worlds, script-only route lanes,
+  evolutionary route optimizer (`route_search.py`), lab/match legality
+  doctrine with wiki-audited **match physics** (vanilla harvest rate,
+  starting-kit parity via `inventory=` kwarg).
+- ✅ **Deterministic match-legal S1 route**: 4 bit-identical 1× validation
+  runs. Honest state: 11.5/100 in 5:00 without the kit; kit-aware search
+  (stopped at g60) already above the no-kit plateau — its 1× match
+  validation is the next session's first move (`validate_champion.py`).
+- Key distilled rules: LEARNINGS.md §B2 (entombment, zombies, quantization,
+  route-not-brain, lab≠match, parity audit).
+
+## (Older) Where we are / what's next
 
 - ✅ Arena runs end-to-end; pinned map seed; scorecard + decision ledger (eval
   phases 1–2 done).

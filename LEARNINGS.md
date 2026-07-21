@@ -110,6 +110,72 @@ to reread before changing the scaffold or playbook.
 
 ---
 
+## B2. The staged-eval / route-search campaign (2026-07-20/21) — distilled
+
+The two-day sprint from "legal mode scores zero" to "deterministic
+match-legal routes" produced these rules (full narrative: FINDINGS.md;
+doctrine: WR-PACE.md):
+
+### Body (skill layer) rules
+10. **Never build where you stand.** FLE `place_entity` happily builds ON
+    the character; an entombed character's walking queue never drains, and
+    legal-mode `move_to` long-polls that queue forever. This one bug
+    explained every legal-mode collapse including the 60× trio drop. Stand
+    off the build spot (reach is ~10 tiles) and place from distance.
+11. **Act from where you stand; walk adjacent only on refusal, never onto
+    an entity's tile** (`_touch`/`_near`). Most insert/extract needs no walk
+    at all.
+12. **Explicit wrappers, never monkeypatching** FLE's injected tool names —
+    shadowing them at prelude scope breaks their name resolution. And the
+    prelude must be **functions-only**: FLE's namespace persistence drops
+    module imports and non-trivial top-level state between evals.
+13. **Quantize every skill under the eval timeout.** A timed-out eval leaves
+    a server-side zombie that poisons the client (busy cascades, stale
+    inventory reads). Skills that can't exceed ~90 s can't create zombies.
+    Busy-armor (`_b`: wait-and-retry on "already busy") absorbs the rest.
+14. **Skills self-provision one hop deep and BLOCK loudly** ("BLOCKED
+    power_craft: need ~35 plates, have 12") — plus a controller cooldown so
+    a blocked skill can't be spam-retried; skip to the next runnable item.
+
+### Brain rules
+15. **On a pinned seed, brains converge to the script — that's the
+    asymptote, not a failure.** n=90 across three variant families (pace
+    prompt, plan shape, cadence 10/20/45 s) all landed within noise of
+    baseline. Optimize the ROUTE offline (scripted, searchable); spend the
+    brain on novel seeds, disruption recovery, and stage-boundary strategy.
+16. **Ground the brain or it hallucinates state** — one lane declared
+    "power online" while the skill sat BLOCKED, then chased copper. A
+    game-truth CHECKLIST + AFFORD line in every status raised the score
+    floor 4× (5.5 → 20.7). Beliefs never substitute for the checklist.
+17. **Disable extended thinking for planning calls** (`MAX_THINKING_TOKENS=0`
+    + BE TERSE): 26–58 s / 2–5k-token thinks became ~4 s / 25 tokens with no
+    observable quality loss at this decision granularity.
+
+### Measurement rules
+18. **Lab vs match is a hard wall** (WR-PACE §6): lab = any physics-neutral
+    advantage, relative ranking only; match = 100% vanilla rules. Tag every
+    run; never compare across. **Lab scores do not transfer**: at 4× speed,
+    passive drill production earns 4× per wall-second of body time (23.5
+    lab → 11.5 match for the same route). Champions must revalidate at 1×.
+19. **Parity-audit the env before claiming legality.** FLE "legal mode"
+    hand-harvest was ~50× vanilla (the whole early economy rode it);
+    conversely FLE walks at HALF vanilla speed, overcharges crafts, can't
+    craft-while-walking, and **strips the freeplay starting kit**
+    (restored via `FactorioInstance(inventory=...)` — the single biggest
+    legal lever found: kit-aware search beat the no-kit plateau in ¼ the
+    generations).
+20. **Determinism is winnable**: after the body fixes, a scripted route
+    produced four bit-identical 1× match runs (gates matching to 0.01 min).
+    Variance is harness bugs, not game randomness — fix the harness, then
+    N=1 becomes meaningful again.
+21. **Width-first experiments**: 10 concurrent pinned-seed worlds per round
+    (Docker-VM RAM is the cap, ~530 MB/server), one account pool
+    (reset-soonest-with-headroom) for all lanes, preflight it, rotate lane
+    ledgers per run. Token-free script search runs at 4× unpinned;
+    brained/spectator runs pin 1×.
+
+---
+
 ## C. The one-line doctrine
 
 > Give the model calculators, oracles, and macros; feed it one fresh
