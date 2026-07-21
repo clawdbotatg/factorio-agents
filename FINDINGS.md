@@ -173,6 +173,14 @@ variant is **beating ~38 consistently**, and today's brains roughly match
 the script, not yet beat it. Next lever: affordability in the status (the
 brains' remaining failure is queueing builds before plates exist).
 
+batch-6 exposed the hallucination mode (brain declared "power online" while
+power_craft sat BLOCKED, then chased copper — the FLE paper's
+wrong-beliefs-about-state failure, live in our ledger). batch-7 added the
+**truth checklist + AFFORD line** to every status: floor rose from 5.5 to
+20.7 (21.7 / 26.3 / 20.7 / 42.9, no collapsed lanes, 4+ drills everywhere,
+2/4 power). Checklist kept. Variant verdicts (pace / powerpack) now
+accumulating via `league_s1.sh` (4 rounds × within-batch pairing).
+
 ## Open items
 
 - Legal-mode skill layer: belt/inserter logistics skills (hand-hauling
