@@ -92,7 +92,7 @@ def mutate(plan):
     return p
 
 
-def write_configs(pop, gen):
+def write_configs(pop, gen, speed=4.0):
     RDIR.mkdir(parents=True, exist_ok=True)
     paths = []
     for i, plan in enumerate(pop):
@@ -101,6 +101,7 @@ def write_configs(pop, gen):
             "mode": "skills", "script_only": True,
             "model": "none", "accounts": [],
             "timeout_cap": 90, "default_plan": plan,
+            "wall_sleep_scale": round(1.0 / max(speed, 1), 3),
         }], "fast": False, "steps": 400,
             "shared_goal": "scripted route eval — no brain"}
         path = RDIR / f"cand-{i}.json"
@@ -140,17 +141,27 @@ def main():
     champ_scores = []
     survivors = [copy.deepcopy(SEED_PLAN)]
     gen = 0
+    force_reset = False
     while time.time() < deadline:
         gen += 1
         pop = [copy.deepcopy(champion)]
         pop += [copy.deepcopy(s) for s in survivors[:2]]
         while len(pop) < args.pop:
             pop.append(mutate(random.choice([champion] + survivors[:2])))
-        paths = write_configs(pop, gen)
-        scores = eval_generation(paths, gen, args.speed,
-                                 full_reset=(gen % 6 == 1))
+        paths = write_configs(pop, gen, args.speed)
+        try:
+            scores = eval_generation(paths, gen, args.speed,
+                                     full_reset=(gen % 6 == 1 or force_reset))
+        except Exception as e:
+            print(f"g{gen}: eval error {str(e)[:120]} — full reset next")
+            force_reset = True
+            continue
+        # a partially-graded generation means sick lanes/instances — recover
+        force_reset = len(scores) < args.pop * 0.7
+        if force_reset:
+            print(f"g{gen}: only {len(scores)}/{args.pop} graded — "
+                  "full cluster reset next generation")
         if not scores:
-            print(f"g{gen}: no scores — cluster trouble? full reset next")
             continue
         ranked = sorted(scores.items(), key=lambda kv: -kv[1])
         champ_scores.append(scores.get(0, 0))

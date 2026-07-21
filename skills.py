@@ -819,7 +819,10 @@ def run_skills_agent(instance, idx: int, cfg: dict, shared_goal: str,
                 and (due or (idle_noop
                              and time.time() - state["last_plan"] > 10))):
             plan_async(build_status(last_result, score))
-        time.sleep(6 if idle_noop else 1)
+        # wall-clock sleeps cost speed× game time at lab speeds — scale them
+        # so high-speed route evals aren't biased toward fewer-bigger quanta
+        wscale = float(cfg.get("wall_sleep_scale") or 1)
+        time.sleep((6 if idle_noop else 1) * wscale)
     log(name, "done", f"completed {max_steps} skill steps")
 
 

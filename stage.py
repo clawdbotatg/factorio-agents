@@ -183,7 +183,8 @@ def grade_s1(samples: list, window_ticks: int) -> dict:
 
 # --------------------------------------------------------------- lanes ------
 def run_lane(i: int, cfg_path: str, label: str, minutes: int, results: dict,
-             keep_world: bool, speed: float = 1.0, tag: str = "lab"):
+             keep_world: bool, speed: float = 1.0, tag: str = "lab",
+             reuse: bool = False):
     port = BASE_PORT + i
     stem = Path(cfg_path).stem
     lane_label = f"{label}:L{i}:{stem}"
@@ -212,6 +213,12 @@ def run_lane(i: int, cfg_path: str, label: str, minutes: int, results: dict,
         minutes * 60 / max(speed, 1) * 4 + 240
     hard_deadline = time.time() + wall_budget
     last_nudge = 0.0
+    # cluster-reuse rounds: sample zero must land AFTER arena wipes the
+    # previous round's world (clear_entities also zeroes production stats) —
+    # otherwise gates fire at 0.0 min against leftover bases and prod deltas
+    # go negative (route-search g2/g3 contamination bug).
+    started = not reuse
+    t_open = time.time()
     with open(tl_path, "w") as tf:
         while time.time() < hard_deadline:
             try:
@@ -222,6 +229,14 @@ def run_lane(i: int, cfg_path: str, label: str, minutes: int, results: dict,
                 c = None
                 time.sleep(3)
                 continue
+            if not started:
+                if d.get("total", 99) <= 2 or time.time() - t_open > 150:
+                    started = True
+                    tf.write(json.dumps({"wipe_anchor": d.get("total"),
+                                         "t": round(time.time(), 1)}) + "\n")
+                else:
+                    time.sleep(2)
+                    continue
             d["t"] = round(time.time(), 1)
             samples.append(d)
             tf.write(json.dumps(d) + "\n")
@@ -360,7 +375,7 @@ def main():
     threads = [threading.Thread(target=run_lane,
                                 args=(i, cfg, args.label, args.minutes,
                                       results, bool(args.save),
-                                      args.speed, args.tag),
+                                      args.speed, args.tag, reuse),
                                 name=f"lane-{i}")
                for i, cfg in enumerate(args.lane)]
     for t in threads:
