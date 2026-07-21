@@ -56,3 +56,12 @@ if the walk was aborted/cleared — every later build target then computes
 out of reach from a phantom position and ALL placements fail (vs-race 4:
 bot 0 builds in 40 min). Patched: read the character's real position via
 RCON after every walk. Re-apply after uv sync.
+
+# Also: ensure_valid_character defects re-created bots to force player
+
+`fle/env/mods/utils.lua ensure_valid_character`: a re-created character was
+hardcoded `force = game.forces.player` AND spawns at origin — in VS mode the
+bot silently joins the human's team in a body its client doesn't know the
+location of (race-day zero-scores, layer 4). Patched to honor
+`storage.agent_forces[player_index]` (set by arena's ARENA_BOT_FORCE hook).
+Re-apply after uv sync; rebake scenario before next joiner session.

@@ -351,7 +351,9 @@ def main():
                 # a fresh force starts naked (252 vs 0 in the first VS try)
                 "for name, t in pairs(game.forces['player'].technologies) do "
                 "game.forces['bot'].technologies[name].researched = t.researched end "
+                "storage.agent_forces = storage.agent_forces or {} "
                 "for i, ch in pairs(storage.agent_characters) do "
+                "storage.agent_forces[i] = 'bot' "
                 "if ch and ch.valid then ch.force = 'bot' end end "
                 "rcon.print('bot force ready')")
             print("BOT FORCE active — competitive mode (tech parity applied)")
