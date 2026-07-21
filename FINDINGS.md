@@ -347,6 +347,37 @@ build throughput verbs** — one-pass batch placement, multi-skill evals
 nightly + human exhibitions) become the primary eval; the search returns
 when the verb set is worth optimizing over.
 
+## VS-mode (human vs bot, separate forces) — status after race day (2026-07-21)
+
+Four human-vs-bot sessions today. Human record: **4–0** (co-op 26-vs-8, then
+three VS attempts where the bot scored 0 — each zero was a different bug,
+each now a documented FLE patch):
+
+1. **Six hardcoded `force = "player"` sites** in FLE agent tools (incl. the
+   place_entity create path) — a bot on another force builds onto force
+   player. Patched to `player.force`.
+2. **Fresh forces start with 0 researched techs** vs FLE's fully-unlocked
+   player force (252) — arena's BOT_FORCE hook now copies research parity.
+3. **The phantom-arrival desync (the big one):** legal-mode `move_to`
+   records the character at the REQUESTED target even when the walk aborts
+   (blocked path, unstick clear) — after which every build target computes
+   out of reach of the real body and ALL placements fail silently
+   (`try_place` swallows). Patched: read the real position after every
+   walk. This likely also explains brained lanes underperforming the
+   script all along (brains wander and abort walks; scripts didn't).
+4. **Still open:** even post-fixes the live brained VS bot placed nothing —
+   next suspects: legal-mode place_entity's follow-up `get_entity` fetch
+   (unpatched force filter?) and `ensure_valid_character` possibly
+   re-creating the char on force player. The scripted 4-min verification
+   (18 entities, 653 plates, force bot) PASSED — the failure needs the
+   live/brained/KEEP_WORLD path to reproduce. Needs an offline layered
+   test (place → fetch → census assertions at each step), not live
+   debugging. `configs/vs-test.json` is the harness starting point.
+
+Also fixed today: Docker Desktop's UDP proxy silently dies after repeated
+cluster cycling (TCP/RCON keeps working — check `lsof -iUDP:34197`, not
+`docker ps`); whitelist file can come up empty with enforcement on.
+
 ## Open items
 
 - Legal-mode skill layer: belt/inserter logistics skills (hand-hauling
