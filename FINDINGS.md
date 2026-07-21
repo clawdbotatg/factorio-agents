@@ -229,6 +229,40 @@ injected into brain workdirs) now carries the numbers. Three discoveries:
    mine, adjacent to iron) + two big-rocks near spawn — the WR's rock trick
    is available and no skill uses it. sk_rocks is the top missing S1 skill.
 
+## Overnight route search under match physics (2026-07-21, 232 generations)
+
+The WR-PACE pivot ran all night: evolutionary search over skill-plan routes,
+10 script-only lanes per generation at 4× lab speed, ~2,300 route evals,
+zero tokens — under **match-legal-or-stricter physics** (harvest throttled
+to exact vanilla 0.5/s; walk measured at ~half vanilla speed; craft
+overcharged vs vanilla; wiki-verified parity audit v1).
+
+- Champion lineage honest fitness (running median): **6.2 → ~23.5** (3.5×)
+  across the night. The optimizer discovered real route ideas on its own:
+  cut the hand-gathered stone trip (bootstrap self-provision covers it),
+  front-load one big iron haul, and in the peak lineage **drill-mine stone**
+  — at vanilla hand-mining rates, even stone deserves drills.
+- **Match-mode validation (1×, tag=match, no nudges, 4 lanes): four
+  PERFECTLY identical runs** — score 11.5, 2 drills, 3 furnaces, 64 plates,
+  gates matching to 0.01 min. The variance war is won: the route is now
+  deterministic. But power is not reached in 5:00 under honest physics.
+- **Lab-speed scores do not transfer to 1×** (23.5 → 11.5): at 4×, passive
+  drill production earns 4× more per wall-second of body time. Lab numbers
+  rank routes; only match numbers are real. (WR-PACE already mandated 1×
+  revalidation — confirmed necessary.)
+
+**The honest gap to the WR (4:31 power+lab+research+~37 drills) is
+structural, and the next legal levers are identified:**
+1. **FLE strips the vanilla starting kit** (`reset_character_inventory` in
+   the open_world scenario) — freeplay gives 1 burner drill + 1 stone
+   furnace + 8 iron plates. Restoring it is parity with every human run,
+   not a cheat, and it collapses the expensive hand-mined bootstrap.
+2. **Rocks**: 2 big-rocks sit near spawn (the WR's first move — instant bulk
+   stone); our skills can't harvest simple-entities yet.
+3. Crafting can't overlap walking in FLE (humans craft while running —
+   we're legally slower); FLE walk is ~half vanilla speed. Fixing FLE-side
+   walk speed UP to vanilla 8.9 tiles/s is parity, not cheating.
+
 ## Open items
 
 - Legal-mode skill layer: belt/inserter logistics skills (hand-hauling
