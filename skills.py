@@ -21,6 +21,9 @@ import time
 # is defensive: sweeps positions, catches everything, prints a ledger line.
 PRELUDE = r'''
 COAL_COLLECTORS = []  # (x, y) of furnaces that receive coal from coal drills
+# NOTE: keep the prelude functions-only — FLE's namespace persistence drops
+# module imports and non-trivial top-level state between evals (probe: a
+# top-level list assigned in one eval NameErrors in the next).
 
 # Legal-mode ClientBusy armor (s1-batch2 finding): a timed-out walk keeps
 # running server-side and later calls die with "client is already busy".
@@ -39,6 +42,31 @@ def _b(fn, *a, **k):
             last = e
             sleep(4)
     raise last
+
+def _near(pos):
+    # walk NEXT TO a target tile, never onto it: pathing onto an occupied
+    # tile hangs the legal-mode pathfinder and zombifies the client (the
+    # bootstrap_feed 150s wedge — s1 probe finding)
+    for dx, dy in ((2.5, 0), (-2.5, 0), (0, 2.5), (0, -2.5), (3, 3), (-3, -3)):
+        try:
+            _b(move_to, Position(x=pos.x + dx, y=pos.y + dy))
+            return True
+        except Exception:
+            continue
+    return False
+
+def _touch(fn, *a, **k):
+    # act on an entity: try from where we stand first (reach ~10 tiles);
+    # only walk adjacent if the action itself refuses
+    try:
+        return _b(fn, *a, **k)
+    except Exception:
+        ent = a[1] if len(a) > 1 else None
+        pos = getattr(ent, "position", None)
+        if pos is None:
+            raise
+        _near(pos)
+        return _b(fn, *a, **k)
 
 
 def _res(name):
@@ -59,13 +87,15 @@ def inv_count(proto):
     return 0
 
 def try_place(proto, pos, direction=None, sweep=14):
-    # walk to the area ONCE, then try nearby spots from where we stand —
-    # every candidate is within build reach, so no per-attempt walking
-    # (matters in legal-player mode where movement takes real time)
+    # Stand OFF the build spot, then place within reach (~10 tiles): placing
+    # an entity over the character ENTOMBS it — its walking queue can never
+    # drain and every later move_to long-polls forever (the s1 probe wedge:
+    # char found embedded inside its own furnace). Never build where you
+    # stand.
     offsets = [(0,0),(1,0),(-1,0),(0,1),(0,-1),(2,0),(-2,0),(0,2),(0,-2),
                (1,1),(-1,1),(1,-1),(-1,-1),(3,0),(-3,0),(0,3),(0,-3)][:sweep]
     try:
-        _b(move_to, pos)
+        _b(move_to, Position(x=pos.x, y=pos.y + 4))
     except Exception:
         pass
     for dx, dy in offsets:
@@ -97,10 +127,14 @@ def sk_gather(stone=0, coal=0, iron=0, copper=0):
                     sleep(3)
     print(inspect_inventory())
 
-def sk_smelt_bootstrap():
-    print("SKILL smelt_bootstrap")
-    # self-provision one hop: the skill acquires its own inputs if short
-    for res, proto, need, grab in [("stone", Prototype.Stone, 10, 14),
+def sk_bootstrap_place():
+    """Quantum 1: provision inputs, craft 3 furnaces, place 2 at the iron
+    patch. NO feeding, NO waiting — bootstrap_feed and keep_fed do the rest.
+    (The old monolithic smelt_bootstrap blew every stage timeout.)"""
+    print("SKILL bootstrap_place")
+    # 4 furnaces worth of stone: 2 placed + 1 reserved for the boiler craft
+    # (sk_power) + 1 spare for a mine_line drop furnace
+    for res, proto, need, grab in [("stone", Prototype.Stone, 20, 22),
                                    ("coal", Prototype.Coal, 10, 20),
                                    ("iron", Prototype.IronOre, 24, 30)]:
         if inv_count(proto) < need:
@@ -112,33 +146,40 @@ def sk_smelt_bootstrap():
             except Exception as e:
                 print(f"{res} self-provision fail: {str(e)[:60]}")
     try:
-        _b(craft_item, Prototype.StoneFurnace, 3)
-        print("crafted 3 furnaces")
+        _b(craft_item, Prototype.StoneFurnace, 4)
+        print("crafted 4 furnaces")
     except Exception as e:
         print("furnace craft fail:", str(e)[:90])
     ip = nearest(_res("iron"))
-    placed = []
+    placed = 0
     for i in range(2):
         f = try_place(Prototype.StoneFurnace,
                       Position(x=ip.x + i * 3, y=ip.y - 7))
         if f:
-            placed.append(f)
-    print(f"placed {len(placed)} bootstrap furnaces")
-    for f in placed:
+            placed += 1
+    print(f"placed {placed} bootstrap furnaces "
+          "(keeping spares: 1 for boiler, 1 for a drop furnace)")
+    print(inspect_inventory())
+
+def sk_bootstrap_feed():
+    """Quantum 2: walk the nearby stone furnaces, load coal + iron ore from
+    inventory. Plates get swept out later by keep_fed."""
+    print("SKILL bootstrap_feed")
+    try:
+        ents = get_entities(radius=60)
+    except Exception:
+        ents = []
+    fed = 0
+    for e in ents:
         try:
-            _b(move_to, f.position)
-            _b(insert_item, Prototype.Coal, f, quantity=10)
-            _b(insert_item, Prototype.IronOre, f, quantity=24)
-        except Exception as e:
-            print("feed fail:", str(e)[:70])
-    sleep(25)
-    for f in placed:
-        try:
-            _b(move_to, f.position)
-            got = _b(extract_item, Prototype.IronPlate, f, quantity=48)
-            print(f"extracted plates: {got}")
-        except Exception as e:
-            print("extract fail:", str(e)[:70])
+            if e.name != "stone-furnace":
+                continue
+            _touch(insert_item, Prototype.Coal, e, quantity=10)
+            _touch(insert_item, Prototype.IronOre, e, quantity=24)
+            fed += 1
+        except Exception as err:
+            print("feed fail:", str(err)[:70])
+    print(f"fed {fed} furnaces")
     print(inspect_inventory())
 
 def sk_mine_line(resource="iron", n=3):
@@ -159,10 +200,16 @@ def sk_mine_line(resource="iron", n=3):
             print(f"crafted {need} drills")
         except Exception as e:
             print("drill craft fail:", str(e)[:90])
-    try:
-        _b(craft_item, Prototype.StoneFurnace, n)
-    except Exception as e:
-        print("furnace craft fail:", str(e)[:90])
+    furn_craftable = inv_count(Prototype.Stone) // 5
+    furn_want = max(0, n - inv_count(Prototype.StoneFurnace))
+    if furn_want > furn_craftable:
+        print(f"low stone: only {furn_craftable} drop furnaces craftable "
+              f"(want {furn_want}) — gather stone to fix")
+    if min(furn_want, furn_craftable):
+        try:
+            _b(craft_item, Prototype.StoneFurnace, min(furn_want, furn_craftable))
+        except Exception as e:
+            print("furnace craft fail:", str(e)[:90])
     patch = nearest(_res(resource))
     placed = 0
     for i in range(n):
@@ -174,7 +221,7 @@ def sk_mine_line(resource="iron", n=3):
             continue
         placed += 1
         try:
-            _b(insert_item, Prototype.Coal, d, quantity=8)
+            _touch(insert_item, Prototype.Coal, d, quantity=8)
         except Exception:
             pass
         f = None
@@ -187,7 +234,7 @@ def sk_mine_line(resource="iron", n=3):
                 COAL_COLLECTORS.append((round(f.position.x), round(f.position.y)))
             else:
                 try:
-                    _b(insert_item, Prototype.Coal, f, quantity=8)
+                    _touch(insert_item, Prototype.Coal, f, quantity=8)
                 except Exception:
                     pass
     print(f"placed {placed}/{n} drills with drop furnaces")
@@ -196,13 +243,26 @@ def sk_mine_line(resource="iron", n=3):
 def sk_power():
     print("SKILL power")
     plates = inv_count(Prototype.IronPlate)
-    if plates < 30:
+    have_parts = (inv_count(Prototype.OffshorePump)
+                  and inv_count(Prototype.Boiler)
+                  and inv_count(Prototype.SteamEngine))
+    if plates < 30 and not have_parts:
         print(f"BLOCKED power: need ~35 iron plates (have {plates}). "
               "Smelt more first (mine_line iron / smelt_bootstrap).")
         return
+    # boiler consumes a stone furnace — reserve one or have stone for it
+    if (not inv_count(Prototype.Boiler)
+            and not inv_count(Prototype.StoneFurnace)
+            and inv_count(Prototype.Stone) < 5):
+        print("BLOCKED power: boiler needs a stone furnace (or 5 stone) — "
+              "gather stone or keep a spare furnace first.")
+        return
+    # NO electric poles: pump->boiler->engine needs none, and poles need
+    # copper we don't mine in this stage
     for proto, qty in [(Prototype.OffshorePump, 1), (Prototype.Boiler, 1),
-                       (Prototype.SteamEngine, 2), (Prototype.Pipe, 10),
-                       (Prototype.SmallElectricPole, 8)]:
+                       (Prototype.SteamEngine, 2), (Prototype.Pipe, 10)]:
+        if inv_count(proto) >= qty:
+            continue
         try:
             _b(craft_item, proto, qty)
         except Exception as e:
@@ -228,9 +288,15 @@ def sk_power():
         return
     print(f"pump at {pump.position}")
     try:
+        # step aside before building the chain — never stand where the
+        # boiler/engines will land (embedded character = wedged walk queue)
+        _b(move_to, Position(x=pump.position.x + 5, y=pump.position.y - 5))
+    except Exception:
+        pass
+    try:
         boiler = _b(place_entity_next_to, Prototype.Boiler, pump.position,
                                       Direction.UP, spacing=2)
-        _b(insert_item, Prototype.Coal, boiler, quantity=20)
+        _touch(insert_item, Prototype.Coal, boiler, quantity=20)
         _b(connect_entities, pump, boiler, Prototype.Pipe)
         prev = boiler
         engines = 0
@@ -266,7 +332,7 @@ def sk_expand_smelting(n=4):
         if f:
             placed += 1
             try:
-                _b(insert_item, Prototype.Coal, f, quantity=8)
+                _touch(insert_item, Prototype.Coal, f, quantity=8)
             except Exception:
                 pass
     print(f"placed {placed} smelting furnaces (autopilot feeds them ore)")
@@ -290,8 +356,8 @@ def sk_keep_fed(radius=150):
         try:
             p = nearest(_res("coal"))
             _b(move_to, p)
-            _b(harvest_resource, p, 40)
-            acts.append("mined 40 coal")
+            _b(harvest_resource, p, 60)
+            acts.append("mined 60 coal")
         except Exception as e:
             acts.append("coal restock fail " + str(e)[:40])
     try:
@@ -304,10 +370,9 @@ def sk_keep_fed(radius=150):
         try:
             nm = e.name
             if nm == "stone-furnace":
-                _b(move_to, e.position)
                 if (round(e.position.x), round(e.position.y)) in collectors:
                     try:
-                        got = _b(extract_item, Prototype.Coal, e, quantity=50)
+                        got = _touch(extract_item, Prototype.Coal, e, quantity=50)
                         if got:
                             swept += 1
                     except Exception:
@@ -315,27 +380,26 @@ def sk_keep_fed(radius=150):
                     continue
                 if inv_count(Prototype.Coal) > 6:
                     try:
-                        _b(insert_item, Prototype.Coal, e, quantity=4)
+                        _touch(insert_item, Prototype.Coal, e, quantity=4)
                         fueled += 1
                     except Exception:
                         pass
                 for proto in (Prototype.IronPlate, Prototype.CopperPlate):
                     try:
-                        got = _b(extract_item, proto, e, quantity=50)
+                        got = _touch(extract_item, proto, e, quantity=50)
                         if got:
                             swept += 1
                     except Exception:
                         pass
                 if inv_count(Prototype.IronOre) > 40:
                     try:
-                        _b(insert_item, Prototype.IronOre, e, quantity=15)
+                        _touch(insert_item, Prototype.IronOre, e, quantity=15)
                     except Exception:
                         pass
             elif nm in ("burner-mining-drill", "boiler", "burner-inserter"):
                 if inv_count(Prototype.Coal) > 6:
-                    _b(move_to, e.position)
                     try:
-                        _b(insert_item, Prototype.Coal, e, quantity=4)
+                        _touch(insert_item, Prototype.Coal, e, quantity=4)
                         fueled += 1
                     except Exception:
                         pass
@@ -365,7 +429,8 @@ SKILLS = {  # name -> (timeout_s, allowed arg keys)
     # Short stage sprints should cap these via cfg "timeout_cap" — one hung
     # skill ate 428s of a 300s stage window in s1-batch2.
     "gather":          (280, {"stone", "coal", "iron", "copper"}),
-    "smelt_bootstrap": (280, set()),
+    "bootstrap_place": (150, set()),
+    "bootstrap_feed":  (120, set()),
     "mine_line":       (340, {"resource", "n"}),
     "power":           (340, set()),
     "expand_smelting": (280, {"n"}),
@@ -375,12 +440,13 @@ SKILLS = {  # name -> (timeout_s, allowed arg keys)
 
 DEFAULT_PLAN = [
     {"skill": "gather", "args": {"stone": 15, "coal": 25, "iron": 30}},
-    {"skill": "smelt_bootstrap", "args": {}},
-    {"skill": "mine_line", "args": {"resource": "iron", "n": 3}},
-    {"skill": "gather", "args": {"stone": 20, "coal": 30}},
-    {"skill": "mine_line", "args": {"resource": "coal", "n": 2}},
+    {"skill": "bootstrap_place", "args": {}},
+    {"skill": "bootstrap_feed", "args": {}},
+    {"skill": "gather", "args": {"iron": 40, "coal": 20, "stone": 15}},
+    {"skill": "keep_fed", "args": {}},
+    {"skill": "mine_line", "args": {"resource": "iron", "n": 2}},
+    {"skill": "keep_fed", "args": {}},
     {"skill": "power", "args": {}},
-    {"skill": "mine_line", "args": {"resource": "iron", "n": 3}},
 ]
 
 CATALOG = """You are the STRATEGY BRAIN for a Factorio agent. You never write
@@ -392,8 +458,10 @@ job is expansion strategy: what to build next, how much, in what order.
 
 SKILL CATALOG (args -> effect, rough prerequisites):
 - gather {stone,coal,iron,copper}: hand-mine raw resources. Fast. No prereqs.
-- smelt_bootstrap {}: place 2 furnaces at the iron patch, smelt starter
-  plates. Needs ~15 stone, ~10 coal, ~24 iron ore in inventory.
+- bootstrap_place {}: craft 3 stone furnaces (self-gathers missing inputs)
+  and place 2 at the iron patch. Follow with bootstrap_feed.
+- bootstrap_feed {}: load nearby furnaces with coal + iron ore from your
+  inventory. keep_fed sweeps the finished plates out automatically.
 - mine_line {resource: iron|copper|coal|stone, n}: place n burner drills,
   each with a drop-feed furnace — a self-running mine+smelt line. Auto-crafts
   drills/furnaces first: needs ~9 iron plates + ~10 stone per drill.

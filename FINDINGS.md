@@ -132,6 +132,33 @@ wait-and-retry busy armor; per-config `timeout_cap` (150 s for stages); the
 render thread (another source of concurrent client calls) is off for stage
 runs (`ARENA_NO_RENDER=1`).
 
+**Probe-driven root causes (2026-07-20, `probe_skills.py` — deterministic
+no-LLM runs of the S1 skill sequence at pinned 1×):**
+
+- **Legal-mode primitives are cheap** — walk-to-patch 1.4 s, harvest 40 ore
+  0.2 s, craft 0.7 s (at FLE's default ~8× speed; multiply by ~8 at pinned
+  1×). The 60× trio production collapse was never physics — it was bugs:
+- **The entombment bug (the big one):** `try_place` walked to the build spot
+  and placed at offsets *including the character's own tile*. FLE's
+  `place_entity` happily builds ON the character; a character embedded in an
+  entity can never drain its walking queue, and legal-mode `move_to`
+  long-polls that queue → every later walk hangs forever, evals time out,
+  the timed-out actions keep running server-side (zombies), and the client
+  desyncs (empty inventory reads). Fast mode teleports, so none of this ever
+  showed in sprint benchmarks. Fix: stand OFF the build spot (reach is ~10
+  tiles), place from distance; `_touch()` tries insert/extract from where we
+  stand and only walks *adjacent* (never onto) an entity as fallback.
+- **FLE namespace persistence drops imports and top-level state** between
+  evals (a module import poisons it; even a plain list NameErrors later).
+  The prelude must be functions-only.
+- After the fixes the loop closed for the first time in legal mode:
+  gather 22 s → place 6 s → **feed 0.3 s** → keep_fed 12 s sweeping **28
+  plates**; next cycle 78 plates; pump + steam engine + pipes crafted from
+  scratch. Remaining: rare long-walk pathfinder wedges (mitigation: 90 s
+  timeout caps so a wedge costs one quantum, not the run) and power-path
+  prechecks (boiler consumes a furnace; poles need copper — dropped from the
+  S1 power chain entirely).
+
 ## Open items
 
 - Legal-mode skill layer: belt/inserter logistics skills (hand-hauling

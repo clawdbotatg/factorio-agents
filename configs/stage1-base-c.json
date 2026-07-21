@@ -8,11 +8,11 @@
       "plan_every_s": 20,
       "sweep_radius": 60,
       "accounts": [
-        "~/.clawd-accounts/clawd",
-        "~/.clawd-accounts/sub2"
+        "~/.clawd-accounts/slop",
+        "~/.clawd-accounts/clawd"
       ],
       "persona": "You are the strategy brain of a solo Factorio speedrunner in the POWER phase. Ruthless priority: self-running drill+furnace pairs on iron and coal first, then power before the clock runs out.",
-      "timeout_cap": 150
+      "timeout_cap": 90
     }
   ],
   "fast": false,
