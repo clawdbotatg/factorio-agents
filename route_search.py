@@ -22,37 +22,47 @@ HERE = Path(__file__).parent
 RDIR = HERE / "configs" / "route"
 CHAMPS = HERE / "route-champions.jsonl"
 
+# Match-physics seed: hand-mining now costs vanilla time (2 game-s/item), so
+# the route front-loads the minimum hand-gather and gets drills up ASAP —
+# exactly the WR shape. Lab + research close the rubric once copper flows.
 SEED_PLAN = [
-    {"skill": "gather", "args": {"iron": 30, "coal": 25}},
-    {"skill": "gather", "args": {"stone": 22}},
+    {"skill": "gather", "args": {"iron": 24, "coal": 15}},
+    {"skill": "gather", "args": {"stone": 20}},
     {"skill": "bootstrap_place", "args": {}},
     {"skill": "bootstrap_feed", "args": {}},
-    {"skill": "gather", "args": {"iron": 40, "coal": 20}},
     {"skill": "keep_fed", "args": {}},
-    {"skill": "gather", "args": {"stone": 15}},
     {"skill": "mine_line", "args": {"resource": "iron", "n": 2}},
+    {"skill": "mine_line", "args": {"resource": "coal", "n": 1}},
     {"skill": "keep_fed", "args": {}},
     {"skill": "power_craft", "args": {}},
     {"skill": "power_build", "args": {}},
+    {"skill": "mine_line", "args": {"resource": "copper", "n": 2}},
     {"skill": "keep_fed", "args": {}},
-    {"skill": "mine_line", "args": {"resource": "iron", "n": 4}},
+    {"skill": "mine_line", "args": {"resource": "iron", "n": 3}},
+    {"skill": "keep_fed", "args": {}},
+    {"skill": "lab", "args": {}},
+    {"skill": "research", "args": {}},
 ]
 
 VOCAB = [
-    lambda: {"skill": "gather", "args": {"iron": random.choice([20, 30, 40, 60])}},
-    lambda: {"skill": "gather", "args": {"coal": random.choice([15, 25, 40])}},
-    lambda: {"skill": "gather", "args": {"stone": random.choice([10, 15, 25])}},
+    lambda: {"skill": "gather", "args": {"iron": random.choice([10, 18, 24])}},
+    lambda: {"skill": "gather", "args": {"coal": random.choice([8, 15, 20])}},
+    lambda: {"skill": "gather", "args": {"stone": random.choice([8, 14, 20])}},
     lambda: {"skill": "mine_line", "args": {"resource": "iron",
                                             "n": random.randint(2, 6)}},
     lambda: {"skill": "mine_line", "args": {"resource": "coal",
                                             "n": random.randint(1, 4)}},
     lambda: {"skill": "mine_line", "args": {"resource": "stone",
                                             "n": random.randint(1, 2)}},
+    lambda: {"skill": "mine_line", "args": {"resource": "copper",
+                                            "n": random.randint(1, 3)}},
     lambda: {"skill": "keep_fed", "args": {}},
     lambda: {"skill": "expand_smelting", "args": {"n": random.randint(2, 6)}},
     lambda: {"skill": "power_craft", "args": {}},
     lambda: {"skill": "power_build", "args": {}},
     lambda: {"skill": "bootstrap_feed", "args": {}},
+    lambda: {"skill": "lab", "args": {}},
+    lambda: {"skill": "research", "args": {}},
 ]
 
 

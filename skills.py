@@ -43,6 +43,15 @@ def _b(fn, *a, **k):
             sleep(4)
     raise last
 
+def _hv(p, amt):
+    # MATCH PHYSICS: FLE hand-harvest is ~50x vanilla — the one big cheat in
+    # "legal" mode (WR-PACE §6). Charge vanilla hand-mining time (0.5
+    # items/s -> 2 game-seconds per item) via tick-aware sleep, so the
+    # charge is correct at any lab speed. Parity audit of craft/walk: TODO.
+    r = _b(harvest_resource, p, amt)
+    sleep(int(amt * 2))
+    return r
+
 def _near(pos):
     # walk NEXT TO a target tile, never onto it: pathing onto an occupied
     # tile hangs the legal-mode pathfinder and zombifies the client (the
@@ -120,7 +129,7 @@ def sk_gather(stone=0, coal=0, iron=0, copper=0):
             try:
                 p = nearest(_res(name))
                 _b(move_to, p)
-                _b(harvest_resource, p, amt)
+                _hv( p, amt)
                 print(f"harvested {amt} {name}")
                 break
             except Exception as e:
@@ -143,7 +152,7 @@ def sk_bootstrap_place():
             try:
                 p = nearest(_res(res))
                 _b(move_to, p)
-                _b(harvest_resource, p, grab)
+                _hv( p, grab)
                 print(f"self-provisioned {grab} {res}")
             except Exception as e:
                 print(f"{res} self-provision fail: {str(e)[:60]}")
@@ -264,7 +273,7 @@ def sk_power_craft():
         try:
             p = nearest(_res("stone"))
             _b(move_to, p)
-            _b(harvest_resource, p, 8)
+            _hv( p, 8)
             print("self-provisioned 8 stone for the boiler")
         except Exception as e:
             print("BLOCKED power_craft: no stone for the boiler and "
@@ -383,7 +392,7 @@ def sk_keep_fed(radius=150):
         try:
             p = nearest(_res("coal"))
             _b(move_to, p)
-            _b(harvest_resource, p, 60)
+            _hv( p, 60)
             acts.append("mined 60 coal")
         except Exception as e:
             acts.append("coal restock fail " + str(e)[:40])
@@ -435,6 +444,74 @@ def sk_keep_fed(radius=150):
     print(f"keep_fed: fueled={fueled} swept={swept} {' | '.join(acts)}")
     print(inspect_inventory())
 
+def sk_lab():
+    """Craft + place a lab wired to the steam engine (WR-PACE §3: makes
+    power_gen and research scoreable). Needs ~35 iron + ~15 copper plates —
+    run a copper mine_line first; keep_fed sweeps copper plates."""
+    print("SKILL lab")
+    fe = inv_count(Prototype.IronPlate)
+    cu = inv_count(Prototype.CopperPlate)
+    if fe < 30 or cu < 15:
+        print(f"BLOCKED lab: need ~30 iron + ~15 copper plates (have "
+              f"{fe} iron / {cu} copper). mine_line copper + keep_fed first.")
+        return
+    try:
+        ents = get_entities(radius=200)
+    except Exception:
+        ents = []
+    eng = None
+    for e in ents:
+        if e.name == "steam-engine":
+            eng = e
+            break
+    if eng is None:
+        print("BLOCKED lab: no steam engine built — power_build first.")
+        return
+    for proto, qty in [(Prototype.ElectronicCircuit, 10),
+                       (Prototype.IronGearWheel, 10),
+                       (Prototype.TransportBelt, 4),
+                       (Prototype.Lab, 1)]:
+        if inv_count(proto) >= qty:
+            continue
+        try:
+            _b(craft_item, proto, qty)
+        except Exception as e:
+            print(f"craft fail {proto}: {str(e)[:70]}")
+    if not inv_count(Prototype.Lab):
+        print("lab craft failed — check plate counts above")
+        return
+    if inv_count(Prototype.SmallElectricPole) < 2:
+        try:
+            w = nearest(_res("wood"))
+            _b(move_to, w)
+            _hv(w, 2)
+            _b(craft_item, Prototype.SmallElectricPole, 2)
+        except Exception as e:
+            print("pole prep fail:", str(e)[:70])
+    lab = try_place(Prototype.Lab,
+                    Position(x=eng.position.x + 6, y=eng.position.y))
+    if lab is None:
+        print("lab placement failed near engine")
+        return
+    for frac in (0.4, 0.75):
+        px = eng.position.x + (lab.position.x - eng.position.x) * frac
+        py = eng.position.y + (lab.position.y - eng.position.y) * frac
+        try_place(Prototype.SmallElectricPole, Position(x=px, y=py), sweep=8)
+    print(f"lab at {lab.position} — queue research next")
+
+def sk_research(tech="Automation"):
+    """Start researching (a legal player action — it's a button click)."""
+    print(f"SKILL research {tech}")
+    t = getattr(Technology, tech, None)
+    if t is None:
+        print(f"unknown technology {tech}")
+        return
+    try:
+        ing = _b(set_research, t)
+        print(f"research started: {tech} (needs {str(ing)[:80]})")
+    except Exception as e:
+        print("research fail:", str(e)[:90])
+
 def sk_status():
     inv = inspect_inventory()
     ents = {}
@@ -459,6 +536,28 @@ def sk_status():
 print("PRELUDE LOADED — skills:", [k for k in dir() if k.startswith("sk_")])
 '''
 
+# S1 pace card distilled from the Strategy Bible (STRATEGY.md). Written into
+# each brained lane's workdir CLAUDE.md — the claude CLI auto-loads it, so
+# every brain "reads the bible". Route facts only, no recipe trivia (field
+# finding: wiki knowledge alone never helped; pacing + doctrine do).
+BIBLE_CARD = """# S1 pace card — distilled from the Strategy Bible
+
+WR Any% splits (the yardstick): Power 4:31 | Intermediates 14:10 | Labs 17:26.
+At the 4:31 power split a WR run has ~35-40 burner drills across
+iron/copper/coal/stone, a powerplant running, a lab placed, and Automation
+already researching.
+
+Route doctrine that wins:
+- Every build starts by adding miners. Drills are the only ore income;
+  a furnace without a drill feeding it is dead weight.
+- Keep the crafting queue full at all times — walking time is crafting time.
+- Nefrums burner-phase counts: 10 iron / 6 copper / 16 coal / 4 stone drills.
+- Power block: pump -> boiler -> 2 steam engines (one pump is never the
+  constraint in 2.0). Lab + Automation research immediately after power.
+- Buffer before big builds: banked plates are what make power and the lab
+  one-shot instead of drip-fed.
+"""
+
 # ---------------------------------------------------------- controller ------
 SKILLS = {  # name -> (timeout_s, allowed arg keys)
     # timeouts sized for legal-player mode (fast=False): walking between
@@ -471,6 +570,8 @@ SKILLS = {  # name -> (timeout_s, allowed arg keys)
     "mine_line":       (340, {"resource", "n"}),
     "power_craft":     (120, set()),
     "power_build":     (240, set()),
+    "lab":             (240, set()),
+    "research":        (60, {"tech"}),
     "expand_smelting": (280, {"n"}),
     "craft":           (220, {"item", "n"}),
     "keep_fed":        (280, {"radius"}),
@@ -513,6 +614,9 @@ SKILL CATALOG (args -> effect, rough prerequisites):
   Needs ~35 iron plates banked. Run before power_build.
 - power_build {}: walk to water and place pump->boiler->engines, piped and
   coaled. Needs the parts from power_craft in inventory.
+- lab {}: craft green circuits + a lab, place it wired to the steam engine.
+  Needs ~30 iron + ~15 copper plates (mine_line copper feeds copper).
+- research {tech}: start researching (default "Automation"). Needs the lab.
 RULE: a skill that prints BLOCKED is missing a prerequisite — queue the fix
 (smelt plates, gather stone), NOT the same skill again; immediate re-queues
 of a blocked skill are auto-deferred for 40s.
@@ -584,6 +688,11 @@ def run_skills_agent(instance, idx: int, cfg: dict, shared_goal: str,
               + "\n\nMATCH CONTEXT:\n" + shared_goal)
     brain = None if script_only else brain_cls(
         name, cfg["model"], cfg["accounts"], system)
+    if brain is not None and getattr(brain, "workdir", None):
+        try:  # the claude CLI auto-loads workdir CLAUDE.md: bible in context
+            (brain.workdir / "CLAUDE.md").write_text(BIBLE_CARD)
+        except Exception:
+            pass
 
     score, _, out = instance.eval(PRELUDE, agent_idx=idx, timeout=60)
     log(name, "prelude", str(out)[:400])
