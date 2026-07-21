@@ -1,0 +1,21 @@
+{
+  "agents": [
+    {
+      "name": "Coop Bot",
+      "brain": "claude-p",
+      "model": "haiku",
+      "mode": "skills",
+      "plan_every_s": 20,
+      "sweep_radius": 80,
+      "timeout_cap": 120,
+      "accounts": [
+        "~/.clawd-accounts/slop",
+        "~/.clawd-accounts/sub3"
+      ],
+      "persona": "You are COOP BOT, playing Factorio WITH a human teammate in one shared world, by the real rules, on a map neither of you has seen. Play your best S1 opening (kit drill first, then scale mining, power, lab, research) but STAY OUT of the human's way \u2014 build compactly, don't take resources they are standing on. Narrate what you're doing via send_message() every plan so the human can follow along."
+    }
+  ],
+  "fast": false,
+  "steps": 400,
+  "shared_goal": "CO-OP EXHIBITION with a live human teammate, random seed, match rules (vanilla physics). 5-10 minutes. Build the best factory opening you can and make it fun to watch: announce plans, react to what the human builds."
+}

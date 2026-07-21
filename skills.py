@@ -52,17 +52,49 @@ def _hv(p, amt):
     sleep(int(amt * 2))
     return r
 
+def _escape():
+    # Self-rescue (match-legal: mining YOUR OWN building): if every path out
+    # fails, pick up one adjacent own entity to open a gap. First live match
+    # ended with the bot entombed in its own mine line — a human had to dig
+    # it out. The item returns to inventory; nothing is lost.
+    try:
+        for e in get_entities(radius=3):
+            try:
+                if e.name == "character":
+                    continue
+                got = _b(pickup_entity, e)
+                print(f"ESCAPE: picked up own {e.name} to open a path")
+                return True
+            except Exception:
+                continue
+    except Exception:
+        pass
+    return False
+
 def _near(pos):
     # walk NEXT TO a target tile, never onto it: pathing onto an occupied
     # tile hangs the legal-mode pathfinder and zombifies the client (the
     # bootstrap_feed 150s wedge — s1 probe finding)
-    for dx, dy in ((2.5, 0), (-2.5, 0), (0, 2.5), (0, -2.5), (3, 3), (-3, -3)):
-        try:
-            _b(move_to, Position(x=pos.x + dx, y=pos.y + dy))
-            return True
-        except Exception:
-            continue
+    for attempt in (1, 2):
+        for dx, dy in ((2.5, 0), (-2.5, 0), (0, 2.5), (0, -2.5), (3, 3), (-3, -3)):
+            try:
+                _b(move_to, Position(x=pos.x + dx, y=pos.y + dy))
+                return True
+            except Exception:
+                continue
+        if attempt == 1 and not _escape():
+            break
     return False
+
+def _fuel(e, qty):
+    # coal first, WOOD as fallback — a map can fence off its coal (first
+    # live match: coal under crash-site wreckage; boiler fueling failed one
+    # step from power while wood stood everywhere)
+    if inv_count(Prototype.Coal) > 6:
+        return _touch(insert_item, Prototype.Coal, e, quantity=qty)
+    if inv_count(Prototype.Wood) > 2:
+        return _touch(insert_item, Prototype.Wood, e, quantity=min(qty * 2, 10))
+    raise Exception("no fuel in inventory (coal or wood)")
 
 def _touch(fn, *a, **k):
     # act on an entity: try from where we stand first (reach ~10 tiles);
@@ -133,7 +165,13 @@ def sk_gather(stone=0, coal=0, iron=0, copper=0):
                 print(f"harvested {amt} {name}")
                 break
             except Exception as e:
-                print(f"gather {name} fail (try {attempt}): {str(e)[:80]}")
+                msg = str(e)
+                if "path" in msg.lower() or "Cannot move" in msg:
+                    # blocked terrain never fixes itself — don't re-walk it
+                    print(f"PATH BLOCKED to {name} — patch unreachable, "
+                          "pick another resource or use wood for fuel")
+                    break
+                print(f"gather {name} fail (try {attempt}): {msg[:80]}")
                 if attempt == 1:
                     sleep(3)
     print(inspect_inventory())
@@ -185,7 +223,7 @@ def sk_bootstrap_feed():
         try:
             if e.name != "stone-furnace":
                 continue
-            _touch(insert_item, Prototype.Coal, e, quantity=10)
+            _fuel(e, 10)
             _touch(insert_item, Prototype.IronOre, e, quantity=24)
             fed += 1
         except Exception as err:
@@ -223,9 +261,13 @@ def sk_mine_line(resource="iron", n=3):
             print("furnace craft fail:", str(e)[:90])
     patch = nearest(_res(resource))
     placed = 0
+    # SINGLE ROW along x, drills facing DOWN onto a furnace row below, and
+    # the builder always works from a lane 4+ tiles SOUTH of everything —
+    # the first live match ended with the bot ENTOMBED inside a ring of its
+    # own drills (grid wrap put buildings on all four sides of it). Never
+    # build a shape that can enclose the builder.
     for i in range(n):
-        base = Position(x=patch.x + (i % 4) * 4 - 6,
-                        y=patch.y + (i // 4) * 7)
+        base = Position(x=patch.x + i * 4 - (n // 2) * 4, y=patch.y)
         d = try_place(Prototype.BurnerMiningDrill, base, Direction.DOWN)
         if d is None:
             print(f"no spot for drill {i}")
@@ -332,7 +374,7 @@ def sk_power_build():
     try:
         boiler = _b(place_entity_next_to, Prototype.Boiler, pump.position,
                                       Direction.UP, spacing=2)
-        _touch(insert_item, Prototype.Coal, boiler, quantity=20)
+        _fuel(boiler, 20)
         _b(connect_entities, pump, boiler, Prototype.Pipe)
         prev = boiler
         engines = 0
@@ -396,6 +438,13 @@ def sk_keep_fed(radius=150):
             acts.append("mined 60 coal")
         except Exception as e:
             acts.append("coal restock fail " + str(e)[:40])
+            try:
+                w = nearest(_res("wood"))
+                _b(move_to, w)
+                _hv(w, 12)
+                acts.append("coal unreachable -> chopped 12 wood for fuel")
+            except Exception as e2:
+                acts.append("wood fallback fail " + str(e2)[:40])
     try:
         ents = get_entities(radius=radius)
     except Exception:
@@ -414,12 +463,11 @@ def sk_keep_fed(radius=150):
                     except Exception:
                         pass
                     continue
-                if inv_count(Prototype.Coal) > 6:
-                    try:
-                        _touch(insert_item, Prototype.Coal, e, quantity=4)
-                        fueled += 1
-                    except Exception:
-                        pass
+                try:
+                    _fuel(e, 4)
+                    fueled += 1
+                except Exception:
+                    pass
                 for proto in (Prototype.IronPlate, Prototype.CopperPlate):
                     try:
                         got = _touch(extract_item, proto, e, quantity=50)
@@ -433,12 +481,11 @@ def sk_keep_fed(radius=150):
                     except Exception:
                         pass
             elif nm in ("burner-mining-drill", "boiler", "burner-inserter"):
-                if inv_count(Prototype.Coal) > 6:
-                    try:
-                        _touch(insert_item, Prototype.Coal, e, quantity=4)
-                        fueled += 1
-                    except Exception:
-                        pass
+                try:
+                    _fuel(e, 4)
+                    fueled += 1
+                except Exception:
+                    pass
         except Exception:
             pass
     print(f"keep_fed: fueled={fueled} swept={swept} {' | '.join(acts)}")

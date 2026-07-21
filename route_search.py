@@ -112,8 +112,16 @@ def write_configs(pop, gen, speed=4.0):
     return paths
 
 
+SEED_POOL = json.load(open(HERE / "seed-pool.json"))
+
+
 def eval_generation(paths, gen, speed, full_reset):
     label = f"route-g{gen}"
+    import os
+    # rotate the lab seed pool on every full reset: anything that only wins
+    # on one map should die in the lab (first live match proved it)
+    os.environ["FLE_SEED"] = str(SEED_POOL[(gen // 6) % len(SEED_POOL)])
+    os.environ["FLE_SPACE_AGE"] = "1"
     cmd = ["uv", "run", "python", "stage.py", "--minutes", "5",
            "--speed", str(speed), "--tag", "lab", "--label", label]
     if not full_reset:

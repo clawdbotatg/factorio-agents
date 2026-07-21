@@ -301,6 +301,37 @@ single legal lever found so far. Stopped before its 1× match validation
 `route-champions.jsonl` — next session: validate it at 1× `--tag match`,
 then continue from `route_search.py --hours N` (the champion file seeds it).
 
+## First live co-op match vs a human (2026-07-21, Space Age, random seed 503800848)
+
+Format: WR-PACE match format 3 — human + bot, one world, real rules, random
+seed, Space Age enabled (FLE booted on SA cleanly — the DLC deletion lives
+in `run-envs.sh`, now env-gated). Human verdict: *"I'm a novice and I
+slaughtered your bot."* Accurate. Final: bot 37 entities (19 drills, 16
+furnaces, boiler+pump placed), score ~14k, **no power, no lab** — it ended
+the match trapped inside a ring of its own buildings holding 4 crafted
+steam engines it never got to place.
+
+What the random map exposed that 300+ pinned-seed evals never did:
+1. **Terrain hazards wedge the pathfinder for real**: this seed's coal sat
+   under crash-site wreckage; every fuel errand froze the bot (first freeze:
+   15 minutes). Live fix: `coop_unstick.py` — match-legal self-unstick
+   (clearing YOUR OWN walking queue is a decision, not a world edit),
+   detection needs rounded positions (a character shoving a wall "walks"
+   in place with sub-tile jitter). 13 interventions this match.
+2. **Self-entrapment**: mine_line placed a ring of drills+furnaces around
+   the builder → permanently boxed in. A human teammate mining one furnace
+   is the legal rescue; the skill must never enclose the builder.
+3. **Fuel fragility**: with coal unreachable, boiler fueling failed
+   ("No coal to insert") one step from power — and nothing falls back to
+   WOOD, which any human would burn (and the starting kit includes).
+4. **Unreachable-target retry loops**: skills re-walk blocked paths forever;
+   path-failures must be non-retryable and reported loudly so the brain
+   routes around.
+
+The meta-lesson is the seed-pool doctrine proven by blood: **anything that
+only wins on one map should die in the lab.** The route search must rotate
+random seeds, not just 424242.
+
 ## Open items
 
 - Legal-mode skill layer: belt/inserter logistics skills (hand-hauling
