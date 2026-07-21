@@ -337,6 +337,26 @@ def main():
         reset_paused=False,
     ))
     print("Instance ready. Launching agent threads…")
+    if os.environ.get("ARENA_BOT_FORCE"):
+        # VS-a-human mode: bots on their own force — separate production
+        # stats, and neither side can open/feed/take from the other's
+        # machines (real competitive rules). Cease-fire: economic race, not
+        # combat.
+        try:
+            instance.rcon_client.send_command(
+                "/sc if not game.forces['bot'] then game.create_force('bot') end "
+                "game.forces['bot'].set_cease_fire('player', true) "
+                "game.forces['player'].set_cease_fire('bot', true) "
+                # research PARITY: FLE unlocks everything for force player;
+                # a fresh force starts naked (252 vs 0 in the first VS try)
+                "for name, t in pairs(game.forces['player'].technologies) do "
+                "game.forces['bot'].technologies[name].researched = t.researched end "
+                "for i, ch in pairs(storage.agent_characters) do "
+                "if ch and ch.valid then ch.force = 'bot' end end "
+                "rcon.print('bot force ready')")
+            print("BOT FORCE active — competitive mode (tech parity applied)")
+        except Exception as e:
+            print("bot force setup failed:", e)
 
     def render_loop():
         """Tier-2 live look: save a game-look PNG per agent every few seconds

@@ -31,3 +31,28 @@ the original pin) and the DLC dirs were rm -rf'd. Patched: seed is
 `fle cluster start` for a random/match seed) and the DLC deletion is
 REMOVED (Space Age mods enabled via mods/mod-list.json — but check whether
 cluster start regenerates that file). Re-apply after uv sync.
+
+# Also: placement legality gate (match rules)
+
+`fle/env/tools/agent/place_entity/server.lua`: every `create_entity` is now
+preceded by `fle_utils.can_place_entity` (manual build check) — raw
+create_entity can stack entities on occupied tiles (bot built on the
+human's structure in live match 3; self-entombment in match 1). Re-apply
+after uv sync; REBAKE the scenario after patching (bake_scenario.py), but
+never mid-match (handler identity breaks rejoins).
+
+# Also: agent tools hardcode force="player" (breaks VS forces)
+
+Multiple `fle/env/tools/agent/*/server.lua` (place_entity create path!,
+inspect_inventory, pickup, rotate, connect) hardcode `force = "player"` —
+a bot moved to another force still builds/searches on force player. Patched
+to `force = player.force`. Re-apply after uv sync.
+
+# Also: move_to phantom-arrival desync (the everything-fails bug)
+
+`fle/env/tools/agent/move_to/client.py` (fast=False branch): after the
+walking-queue wait, FLE set `player_location` to the REQUESTED target even
+if the walk was aborted/cleared — every later build target then computes
+out of reach from a phantom position and ALL placements fail (vs-race 4:
+bot 0 builds in 40 min). Patched: read the character's real position via
+RCON after every walk. Re-apply after uv sync.
