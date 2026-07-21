@@ -159,6 +159,20 @@ no-LLM runs of the S1 skill sequence at pinned 1×):**
   prechecks (boiler consumes a furnace; poles need copper — dropped from the
   S1 power chain entirely).
 
+## S1 brained baseline established (s1-batch4/5, 2026-07-20)
+
+With the body fixed, brained lanes went from median 0 (batches 1–3) to:
+batch-4 (first working batch): 5.5 / **43.4** / 20.2 / 4.0 — the 43.4 lane
+built power at **1:32** (script does 2:54, WR split 4:31) then scaled to 7
+drills; the losers spam-retried BLOCKED power (→ controller cooldown added)
+or wedged on the water trek (→ power split into craft/build quanta).
+batch-5 (post-fix, 4× baseline): **27.5 / 10.7 / 39.2 / 37.6, median ~32.5**,
+all lanes mining, 2/4 power built (2:45, 3:46). Baseline variance band
+≈ 11–39; the script alone scores ≈ 38 — so the bar for any middle-brain
+variant is **beating ~38 consistently**, and today's brains roughly match
+the script, not yet beat it. Next lever: affordability in the status (the
+brains' remaining failure is queueing builds before plates exist).
+
 ## Open items
 
 - Legal-mode skill layer: belt/inserter logistics skills (hand-hauling

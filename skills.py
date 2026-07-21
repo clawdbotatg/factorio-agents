@@ -445,6 +445,16 @@ def sk_status():
         pass
     print("INV:", inv)
     print("BUILT:", ents)
+    # ground truth the brain can't argue with (batch-6: a brain declared
+    # "power online" while power_craft sat BLOCKED, then chased copper)
+    plates = inv_count(Prototype.IronPlate)
+    power = bool(ents.get("boiler") and ents.get("steam-engine"))
+    print(f"CHECKLIST (game truth): power_built={'YES' if power else 'NO'}"
+          f" | drills_placed={ents.get('burner-mining-drill', 0)}"
+          f" | furnaces={ents.get('stone-furnace', 0)}"
+          f" | iron_plates_in_hand={plates}")
+    print(f"AFFORD NOW: mine_line drills craftable={plates // 9}"
+          f" | power_craft={'YES' if plates >= 30 else 'NO (need %d more plates)' % (30 - plates)}")
 
 print("PRELUDE LOADED — skills:", [k for k in dir() if k.startswith("sk_")])
 '''
@@ -506,6 +516,9 @@ SKILL CATALOG (args -> effect, rough prerequisites):
 RULE: a skill that prints BLOCKED is missing a prerequisite — queue the fix
 (smelt plates, gather stone), NOT the same skill again; immediate re-queues
 of a blocked skill are auto-deferred for 40s.
+RULE: the CHECKLIST line in your status is GAME TRUTH. Nothing is built
+until the checklist says so — queueing a skill does not mean it succeeded.
+Use the AFFORD line to time your builds instead of guessing.
 - expand_smelting {n}: n extra furnaces near the iron patch; the autopilot
   feeds them from your ore inventory.
 - craft {item, n}: hand-craft any prototype by name (recursive — crafts
