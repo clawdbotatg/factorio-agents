@@ -16,9 +16,14 @@
         {
           "skill": "gather",
           "args": {
-            "stone": 25,
-            "coal": 30,
-            "iron": 40
+            "iron": 30,
+            "coal": 25
+          }
+        },
+        {
+          "skill": "gather",
+          "args": {
+            "stone": 22
           }
         },
         {
@@ -41,6 +46,12 @@
           "args": {}
         },
         {
+          "skill": "gather",
+          "args": {
+            "stone": 15
+          }
+        },
+        {
           "skill": "mine_line",
           "args": {
             "resource": "iron",
@@ -52,7 +63,18 @@
           "args": {}
         },
         {
+          "skill": "mine_line",
+          "args": {
+            "resource": "coal",
+            "n": 2
+          }
+        },
+        {
           "skill": "power",
+          "args": {}
+        },
+        {
+          "skill": "keep_fed",
           "args": {}
         }
       ],

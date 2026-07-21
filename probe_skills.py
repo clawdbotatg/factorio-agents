@@ -42,12 +42,14 @@ def main():
     _, _, out = inst.eval(PRELUDE, agent_idx=0, timeout=60)
     print("prelude:", str(out)[:120])
     seq = [
-        ("sk_gather(stone=22, coal=25, iron=30)", 240),
+        ("sk_gather(iron=30, coal=25)", 150),
+        ("sk_gather(stone=22)", 150),
         ("sk_bootstrap_place()", 150),
         ("sk_bootstrap_feed()", 90),
         ("sk_keep_fed()", 150),
-        ("sk_gather(iron=40, coal=20, stone=15)", 240),
+        ("sk_gather(iron=40, coal=20)", 150),
         ("sk_keep_fed()", 150),
+        ("sk_gather(stone=15)", 150),
         ("sk_mine_line(resource='iron', n=2)", 150),
         ("sk_keep_fed()", 150),
         ("sk_power()", 240),

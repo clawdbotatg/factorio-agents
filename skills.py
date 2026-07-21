@@ -110,8 +110,10 @@ def try_place(proto, pos, direction=None, sweep=14):
 
 def sk_gather(stone=0, coal=0, iron=0, copper=0):
     print(f"SKILL gather stone={stone} coal={coal} iron={iron} copper={copper}")
-    for name, amt in [("stone", stone), ("coal", coal),
-                      ("iron", iron), ("copper", copper)]:
+    # iron/coal first — the stone patch is the far one on this seed and its
+    # walk is the recurring pathfinder-wedge site; don't let it block the rest
+    for name, amt in [("iron", iron), ("coal", coal),
+                      ("stone", stone), ("copper", copper)]:
         if not amt:
             continue
         for attempt in (1, 2):  # nearest() flakes right after world init
@@ -250,13 +252,19 @@ def sk_power():
         print(f"BLOCKED power: need ~35 iron plates (have {plates}). "
               "Smelt more first (mine_line iron / smelt_bootstrap).")
         return
-    # boiler consumes a stone furnace — reserve one or have stone for it
+    # boiler consumes a stone furnace — self-provision the stone if short
     if (not inv_count(Prototype.Boiler)
             and not inv_count(Prototype.StoneFurnace)
             and inv_count(Prototype.Stone) < 5):
-        print("BLOCKED power: boiler needs a stone furnace (or 5 stone) — "
-              "gather stone or keep a spare furnace first.")
-        return
+        try:
+            p = nearest(_res("stone"))
+            _b(move_to, p)
+            _b(harvest_resource, p, 8)
+            print("self-provisioned 8 stone for the boiler")
+        except Exception as e:
+            print("BLOCKED power: no stone for the boiler and stone "
+                  f"self-provision failed: {str(e)[:60]}")
+            return
     # NO electric poles: pump->boiler->engine needs none, and poles need
     # copper we don't mine in this stage
     for proto, qty in [(Prototype.OffshorePump, 1), (Prototype.Boiler, 1),
@@ -439,11 +447,15 @@ SKILLS = {  # name -> (timeout_s, allowed arg keys)
 }
 
 DEFAULT_PLAN = [
-    {"skill": "gather", "args": {"stone": 15, "coal": 25, "iron": 30}},
+    # per-resource gather quanta: a pathfinder wedge costs one 90s slot,
+    # not the whole shopping trip
+    {"skill": "gather", "args": {"iron": 30, "coal": 25}},
+    {"skill": "gather", "args": {"stone": 22}},
     {"skill": "bootstrap_place", "args": {}},
     {"skill": "bootstrap_feed", "args": {}},
-    {"skill": "gather", "args": {"iron": 40, "coal": 20, "stone": 15}},
+    {"skill": "gather", "args": {"iron": 40, "coal": 20}},
     {"skill": "keep_fed", "args": {}},
+    {"skill": "gather", "args": {"stone": 15}},
     {"skill": "mine_line", "args": {"resource": "iron", "n": 2}},
     {"skill": "keep_fed", "args": {}},
     {"skill": "power", "args": {}},
