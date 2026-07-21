@@ -7,3 +7,4 @@ arena-logs/
 __pycache__/
 sprint-baseline.json
 stage-logs/
+configs/route/

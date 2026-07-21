@@ -573,9 +573,17 @@ def _invocation(item) -> str:
 def run_skills_agent(instance, idx: int, cfg: dict, shared_goal: str,
                      brain_cls, log, max_steps: int = 400):
     name = cfg["name"]
-    system = (CATALOG + "\n\n" + cfg.get("persona", "")
+    # script_only: no LLM anywhere — execute default_plan then keep_fed.
+    # This is the route-search mode (WR-PACE §1/§2): the route is optimized
+    # offline; brains are for divergence and novel seeds.
+    script_only = bool(cfg.get("script_only"))
+    catalog = CATALOG.replace(
+        "every ~90 seconds",
+        f"every ~{cfg.get('plan_every_s', 90)} seconds")
+    system = (catalog + "\n\n" + cfg.get("persona", "")
               + "\n\nMATCH CONTEXT:\n" + shared_goal)
-    brain = brain_cls(name, cfg["model"], cfg["accounts"], system)
+    brain = None if script_only else brain_cls(
+        name, cfg["model"], cfg["accounts"], system)
 
     score, _, out = instance.eval(PRELUDE, agent_idx=idx, timeout=60)
     log(name, "prelude", str(out)[:400])
@@ -651,11 +659,20 @@ def run_skills_agent(instance, idx: int, cfg: dict, shared_goal: str,
                              if cfg.get("sweep_radius") else {})}
         # BLOCKED cooldown: a skill that just reported a missing prerequisite
         # gets deferred instead of spam-retried (batch-4: brains re-queued
-        # power 3-4x while plates smelted, wasting the body's time)
-        if time.time() - blocked_at.get(item["skill"], 0) < 40:
+        # power 3-4x while plates smelted). Skip to the next runnable queue
+        # item (WR-PACE §4) — only fall back to keep_fed if nothing runs.
+        deferred = []
+        while item and time.time() - blocked_at.get(item["skill"], 0) < 40:
+            deferred.append(item)
+            with lock:
+                item = state["queue"].pop(0) if state["queue"] else None
+        if deferred:
             log(name, "defer",
-                f"{item['skill']} BLOCKED {time.time() - blocked_at[item['skill']]:.0f}s "
-                "ago — running keep_fed while its prerequisite catches up")
+                f"deferred {[d['skill'] for d in deferred]} (BLOCKED cooldown)"
+                f" -> running {item['skill'] if item else 'keep_fed'}")
+            with lock:
+                state["queue"].extend(deferred)  # retry later, order kept
+        if item is None:
             item = {"skill": "keep_fed",
                     "args": ({"radius": cfg["sweep_radius"]}
                              if cfg.get("sweep_radius") else {})}
@@ -689,7 +706,7 @@ def run_skills_agent(instance, idx: int, cfg: dict, shared_goal: str,
         idle_noop = (item["skill"] == "keep_fed"
                      and "fueled=0 swept=0" in last_result)
         due = time.time() - state["last_plan"] > cfg.get("plan_every_s", 90)
-        if (not state["inflight"]
+        if (not script_only and not state["inflight"]
                 and (due or (idle_noop
                              and time.time() - state["last_plan"] > 10))):
             plan_async(build_status(last_result, score))

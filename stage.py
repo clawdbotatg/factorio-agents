@@ -28,10 +28,12 @@ BASE_PORT = 27000
 STAGE_RUNS = HERE / "stage-runs.jsonl"
 TL_DIR = HERE / "stage-logs"
 
-# One RCON round-trip: pin speed 1, count the entities the rubrics care
-# about, read production stats, detect research. Returns JSON.
-POLL_LUA = (
-    "/sc if game.speed ~= 1 then game.speed = 1 end "
+# One RCON round-trip: pin the requested speed (grading is tick-based, so
+# physics-neutral speedup is legal in lab mode — WR-PACE §2/§6), count the
+# entities the rubrics care about, read production stats, detect research,
+# and read the walking queue (wedge detection). Returns JSON.
+POLL_LUA_TMPL = (
+    "/sc __PIN__ "
     "local s = game.surfaces[1] "
     "local names = {'burner-mining-drill','stone-furnace','boiler',"
     "'steam-engine','offshore-pump','lab','electric-mining-drill',"
@@ -50,10 +52,30 @@ POLL_LUA = (
     "'iron-gear-wheel','electronic-circuit'}) do "
     "prod[i] = st.get_input_count(i) end "
     "local total = s.count_entities_filtered{force='player'} "
+    "local wq = -1 "
+    "local okq, vq = pcall(function() "
+    "return fle_actions.get_walking_queue_length(1) end) "
+    "if okq then wq = tonumber(vq) or -1 end "
+    "local ch = s.find_entities_filtered{name='character'}[1] "
+    "local cx, cy = 0, 0 "
+    "if ch then cx, cy = ch.position.x, ch.position.y end "
     "rcon.print(helpers.table_to_json({tick=game.tick, built=built, pw=pw, "
-    "prod=prod, total=total, "
+    "prod=prod, total=total, wq=wq, cx=cx, cy=cy, "
     "res=(f.current_research and f.current_research.name or '')}))"
 )
+
+NUDGE_LUA = (
+    "/sc local ch = game.surfaces[1].find_entities_filtered{name='character'}[1] "
+    "if ch then local p = ch.position "
+    "ch.teleport({p.x + 2, p.y + 2}) rcon.print('nudged') "
+    "else rcon.print('no char') end"
+)
+
+
+def poll_lua(speed: float) -> str:
+    pin = ("" if not speed else
+           f"if game.speed ~= {speed} then game.speed = {speed} end")
+    return POLL_LUA_TMPL.replace("__PIN__", pin)
 
 
 def sh(cmd: str):
@@ -161,7 +183,7 @@ def grade_s1(samples: list, window_ticks: int) -> dict:
 
 # --------------------------------------------------------------- lanes ------
 def run_lane(i: int, cfg_path: str, label: str, minutes: int, results: dict,
-             keep_world: bool):
+             keep_world: bool, speed: float = 1.0, tag: str = "lab"):
     port = BASE_PORT + i
     stem = Path(cfg_path).stem
     lane_label = f"{label}:L{i}:{stem}"
@@ -185,13 +207,17 @@ def run_lane(i: int, cfg_path: str, label: str, minutes: int, results: dict,
     window_ticks = minutes * 3600
     samples = []
     c = None
-    hard_deadline = time.time() + minutes * 60 * 2.5 + 180
+    lua = poll_lua(speed)
+    wall_budget = minutes * 60 * 2.5 + 180 if speed <= 1 else \
+        minutes * 60 / max(speed, 1) * 4 + 240
+    hard_deadline = time.time() + wall_budget
+    last_nudge = 0.0
     with open(tl_path, "w") as tf:
         while time.time() < hard_deadline:
             try:
                 if c is None:
                     c = rcon(port)
-                d = json.loads(c.send_command(POLL_LUA))
+                d = json.loads(c.send_command(lua))
             except Exception:
                 c = None
                 time.sleep(3)
@@ -202,7 +228,24 @@ def run_lane(i: int, cfg_path: str, label: str, minutes: int, results: dict,
             tf.flush()
             if d["tick"] - samples[0]["tick"] >= window_ticks:
                 break
-            time.sleep(5)
+            # wedge watchdog (lab mode only): walking queue stuck non-empty
+            # and character not moving across 3 samples -> 2-tile nudge,
+            # logged. A stuck FLE pathfinder is a harness bug (WR-PACE §4).
+            if (tag == "lab" and len(samples) >= 3
+                    and time.time() - last_nudge > 30):
+                w = [(s.get("wq", -1), s.get("cx"), s.get("cy"))
+                     for s in samples[-3:]]
+                if (w[0][0] > 0 and len({x[0] for x in w}) == 1
+                        and len({(x[1], x[2]) for x in w}) == 1):
+                    try:
+                        r = c.send_command(NUDGE_LUA)
+                        last_nudge = time.time()
+                        tf.write(json.dumps({"nudge": r,
+                                             "t": round(time.time(), 1)}) + "\n")
+                        tf.flush()
+                    except Exception:
+                        pass
+            time.sleep(5 if speed <= 1 else 2)
     proc.terminate()
     time.sleep(3)
     if proc.poll() is None:
@@ -210,9 +253,14 @@ def run_lane(i: int, cfg_path: str, label: str, minutes: int, results: dict,
     if not samples:
         results[i] = {"lane": lane_label, "error": "no samples"}
         return
+    # normalize production stats to the first sample: the Lua counters are
+    # per-force cumulative and survive cluster-reuse rounds
+    p0 = samples[0].get("prod", {})
+    for d in samples:
+        d["prod"] = {k: v - p0.get(k, 0) for k, v in d.get("prod", {}).items()}
     g = grade_s1(samples, window_ticks)
     results[i] = {"ts": time.time(), "lane": lane_label, "config": cfg_path,
-                  "minutes": minutes, **g}
+                  "minutes": minutes, "tag": tag, "speed": speed, **g}
     with open(STAGE_RUNS, "a") as f:
         f.write(json.dumps(results[i]) + "\n")
 
@@ -242,8 +290,13 @@ def preflight_accounts(lane_cfgs: list):
     for cfg_path in lane_cfgs:
         cfg = json.loads((HERE / cfg_path).read_text())
         for a in cfg["agents"]:
+            if a.get("script_only") or not a.get("accounts"):
+                continue  # brainless route lanes need no pool
             for acct in a["accounts"]:
                 accts.setdefault(acct, None)
+    if not accts:
+        print("  (all lanes script-only — no account preflight needed)")
+        return
 
     def probe(acct):
         env = {k: v for k, v in os.environ.items()
@@ -270,6 +323,8 @@ def preflight_accounts(lane_cfgs: list):
     for cfg_path in lane_cfgs:
         cfg = json.loads((HERE / cfg_path).read_text())
         for a in cfg["agents"]:
+            if a.get("script_only") or not a.get("accounts"):
+                continue
             if not any(accts[x] == "ok" for x in a["accounts"]):
                 raise SystemExit(
                     f"lane {cfg_path}: all account pools dead — fix accounts")
@@ -283,15 +338,29 @@ def main():
     ap.add_argument("--label", default=time.strftime("stage-%m%d-%H%M"))
     ap.add_argument("--save", default=None,
                     help="boot every instance from this save (stage relay)")
+    ap.add_argument("--speed", type=float, default=1.0,
+                    help="pin game.speed (0 = leave unpinned). Lab-mode "
+                         "physics-neutral speedup; grading is tick-based")
+    ap.add_argument("--tag", default="lab", choices=["lab", "match"],
+                    help="run class — lab numbers never compare to match")
+    ap.add_argument("--no-cluster-reset", action="store_true",
+                    help="reuse running instances (FLE clear_entities still "
+                         "wipes builds per lane; prod stats delta-normalized)")
     args = ap.parse_args()
     TL_DIR.mkdir(exist_ok=True)
     print("preflighting account pools…")
     preflight_accounts(args.lane)
-    start_cluster(len(args.lane), args.save)
+    reuse = args.no_cluster_reset and all(
+        wait_rcon(BASE_PORT + i, timeout=5) for i in range(len(args.lane)))
+    if reuse:
+        print(f"reusing running cluster ({len(args.lane)} instances)")
+    else:
+        start_cluster(len(args.lane), args.save)
     results = {}
     threads = [threading.Thread(target=run_lane,
                                 args=(i, cfg, args.label, args.minutes,
-                                      results, bool(args.save)),
+                                      results, bool(args.save),
+                                      args.speed, args.tag),
                                 name=f"lane-{i}")
                for i, cfg in enumerate(args.lane)]
     for t in threads:
