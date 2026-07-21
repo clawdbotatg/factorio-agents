@@ -181,6 +181,12 @@ wrong-beliefs-about-state failure, live in our ledger). batch-7 added the
 2/4 power). Checklist kept. Variant verdicts (pace / powerpack) now
 accumulating via `league_s1.sh` (4 rounds × within-batch pairing).
 
+Batch-7 also triggered a whole-system audit vs the speedrun goal:
+[WR-PACE.md](WR-PACE.md) — on a pinned seed the middle-brain search has hit
+its asymptote (brains ≈ the ~38 script across batches 4–7); the next gains
+are route engineering (copper/lab/research legs, unpinned-speed route
+search, wedge watchdog), not brain variants.
+
 ## Open items
 
 - Legal-mode skill layer: belt/inserter logistics skills (hand-hauling

@@ -1,0 +1,140 @@
+# WR-PACE.md — critical audit: what it takes to run at speedrunner pace (2026-07-20)
+
+A top-to-bottom critique of the current system (5-min S1 legal-mode trials,
+skills-mode middle brain) against the actual goal: **a bot that runs the game
+as fast as the speedrunners** (WR 1:18:56; S1 power split 4:31). Grounded in
+batches 1–7 data, the probe timings, and the code as of `4592a6f`.
+
+## 0. Where the data says we are (through s1-batch7)
+
+- Script alone (DEFAULT_PLAN, no LLM): S1 power at ~2:54, score ≈ 38.
+- Brained lanes: batch-5 median ~32.5, batch-6 collapse (median ~12, brains
+  hallucinating state), batch-7 after the truth checklist: **21.7 / 26.3 /
+  20.7 / 42.9, median ~24, 2/4 power (2:50, 3:00)**. Band restored; brains
+  still ≈ script, never clearly above it.
+- Same-config variance band ≈ 11–43. At N=4 we can only detect >2× effects.
+
+## 1. The core critique: the brain is not the bottleneck — the ROUTE is
+
+For a **pinned seed**, S1 (and really every early segment) is a deterministic
+optimization problem. A speedrunner is not making novel decisions every 20 s;
+they execute a **precomputed route** with trained exception recovery. Seven
+batches of middle-brain search have produced brains that *approximate the
+script*. That is the expected asymptote: on a fixed seed, the best possible
+brain converges to the best route, so we're spending batch-days teaching Haiku
+to rediscover DEFAULT_PLAN.
+
+**Inversion:** optimize the route offline (scripted, searchable, measurable);
+use the LLM only where the world diverges from the route or the seed is novel.
+
+- **Route** = the speed. Hill-climb skill sequences with no LLM in the loop.
+- **Brain** = robustness + generality + the show. Its honest value metric is
+  Δ-over-script on **random seeds** and under injected disruption — not on
+  424242, where the script must win by construction.
+- This also serves the entertainment product: exhibitions on unseen seeds are
+  exactly where brains visibly out-play scripts.
+
+## 2. The search loop is running 8× slower than it needs to
+
+`stage.py` pins `game.speed=1` "so wall time = WR split time" — but grading is
+already **in ticks**. Physics is identical at any speed; this box does ~500 UPS.
+Speed-1 is only needed when a *brain* is in the lane (think-time is wall-clock,
+so at 8× a 20 s think costs 160 game-seconds) or when a spectator is watching.
+
+- **Scripted route evals should run unpinned**: 5 game-min ≈ 40–75 wall-s.
+  4 lanes → hundreds of route evals/day instead of ~16. That turns stage.py
+  from a grader into an actual optimizer.
+- Concretely: add a `--speed` flag (poller pins the requested speed); route
+  search batches use max sustainable speed; brained/spectator batches keep 1×.
+- With cheap evals, run an **evolutionary route search** overnight: mutate
+  DEFAULT_PLAN (reorder, tune n, insert/remove quanta), eval N≥8 per candidate,
+  keep the median-best. The cluster grinds; no tokens burned.
+
+## 3. The route gap to WR is structural, not executional
+
+WR S1 at 4:31 delivers: ~35–40 burner drills (iron+copper+coal+stone), power
+plant, **lab placed, Automation researching**. Our best lane: 7 drills, no
+copper, no lab. The current skill pack **cannot score above ~65/100**: every
+S1-reachable electric consumer, the lab, and green circuits all need copper,
+and copper isn't in the route. Missing legs (all script work, no research risk):
+
+1. **Copper mine line + copper smelting** (unlocks everything below).
+2. **sk_lab**: craft lab (10 GC + 10 gears + 4 belts) + place + power it —
+   this also makes `power_gen` scoreable (a real consumer exists).
+3. **sk_research**: start Automation via RCON-legal API (`set research` is a
+   player action in FLE? probe it — humans click a button, so it's legal).
+4. **Rocks + trees**: the WR mines starting rocks (big instant stone/coal near
+   spawn) and chops trees. If FLE exposes rock harvesting, the wedge-prone
+   far-stone-patch walk — our #1 variance source — may be deletable.
+5. **Drill count**: rubric caps at 20; we place 4–7. After power, the script
+   should default to drill spam (patch-aware rows — the known crowding issue).
+
+## 4. Variance is the enemy of both speed and science — kill it at the harness
+
+Sources, in impact order: pathfinder wedges (heavy tail, eats a 90 s quantum),
+`nearest()` init race, brain nondeterminism, placement crowding.
+
+- **Wedge watchdog**: RCON-side check — if the character's walking state is
+  stalled >10 s, nudge it (2-tile teleport) and log the intervention. A stuck
+  FLE pathfinder is a harness bug, not game physics; repairing it is not
+  cheating (but log every nudge so runs are auditable).
+- With 8× evals, variance gets **measured** (N≥8 medians) instead of guessed.
+- Blocked-cooldown currently substitutes keep_fed even when the queue holds
+  other runnable skills — skip to the next non-blocked item instead.
+
+## 5. Micro-throughput: what a speedrunner does that the body doesn't
+
+- **Craft while walking.** Vanilla hand-crafting continues during walking; if
+  FLE's `craft_item` blocks the eval for the full craft time, the body stands
+  still for every craft (~5.6 s per furnace batch at 1×). Probe whether craft
+  can overlap movement; if not, it's an env constraint worth documenting (and
+  possibly an FLE patch — we already run a patched snapshot).
+- **Body idle seconds** between quanta (eval round-trips + `sleep(1)`) is a
+  planned metric (SEGMENTS §5) that isn't instrumented yet. Instrument before
+  any more MB batches — otherwise deltas can't be attributed.
+- Prompt drift: CATALOG says "re-consulted every ~90 seconds"; stage configs
+  run `plan_every_s: 20`. Make the prompt read the real cadence.
+
+## 6. Write the legality doctrine down NOW
+
+Three anomalies will otherwise poison the "as fast as speedrunners" claim:
+
+1. **FLE hand-harvest is ~50× vanilla** (probe: 40 ore ≈ 1.6 s at 1×; vanilla
+   hand-mining is 0.5 ore/s). Our whole bootstrap leans on it. A human cannot
+   do this — which is why we "beat" the 4:31 power split at 1:32. Either
+   disclose the category ("FLE-legal") or self-limit harvest rates.
+2. **`_load_blueprint` spawns entities directly.** Humans can't paste without
+   construction bots. Ban it in match play; reference-save baking only. After
+   bots are online (S7), bot-built ghosts become human-legal — probe FLE's
+   support, because post-bots the WR *is* blueprint logistics.
+3. **N characters.** The arena already runs multiple agents in one world =
+   multiple pairs of hands. That's legitimately superhuman **as co-op** —
+   race the co-op category, not solo, when using it.
+
+Tag every graded run with its category: `fle-legal-solo` / `human-legal-solo`
+/ `co-op`.
+
+## 7. The sequenced path to a full WR-pace run
+
+- **A (route engineering, now):** copper leg + lab + research + rock-mining
+  skills; unpinned-speed route search; wedge watchdog. Exit: script S1 hits
+  the real WR deliverable (power + drills incl. copper + lab + research by
+  4:31-equivalent ticks) at ≥90/100 median, N=8.
+- **B (the real frontier):** bake S1 reference save → S2 rubric → **belt +
+  inserter logistics skill pack** (drill row → belt → furnace column via
+  `connect_entities`). Hand-hauling is the measured 60× wall; S2 is where
+  every FLE agent in history has died. Highest research risk in the plan —
+  start it before polishing S1 further.
+- **C (brains where they earn keep):** exception-handler on the fixed route
+  (deviation → replan), random-seed exhibitions, stage-boundary strategy.
+  Brain metric: Δ-over-script on random seeds.
+- **D (superhuman levers):** 3-agent zoned co-op vs the co-op WR; fork-based
+  tree search (EVALUATION.md §3) for mid/late-game layout decisions.
+
+## 8. Batch-7 line (for the record)
+
+s1-batch7 (4× stage1-base, post truth-checklist): 21.7 / 26.3 / 20.7 / 42.9,
+median ~24, power built in 2/4 (2:50, 3:00). Checklist fixed the batch-6
+hallucination collapse; brains remain ≈ script. Consistent with §1: on a
+pinned seed the middle-brain search has hit its asymptote — further gains come
+from the route, not the brain.

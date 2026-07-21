@@ -37,6 +37,7 @@ the model do pathfinding or ratio math. Text observations beat vision.
 | [LEARNINGS.md](LEARNINGS.md) | Distilled rules: what the field learned + what our own runs taught us |
 | [ROADMAP.md](ROADMAP.md) | The master plan — eval phases + scaffold upgrades, sequenced, with status |
 | [EVAL-PLAN.md](EVAL-PLAN.md) | The measurement plan (scorecard → ledger → A/B → VS mode → league) |
+| [WR-PACE.md](WR-PACE.md) | Critical audit vs the speedrun goal: route-not-brain thesis, 8× search loop, legality doctrine, sequenced path |
 | `arena.py` | The runner: N agents, one world, claude-p brains, personas |
 | `scorecard.py` / `decisions.py` | Run snapshots + per-decision Δscore ledger |
 | `arena-logs/<agent>-workdir/` | Each agent's CLAUDE.md playbook, PLAN.md, LESSONS.md |
