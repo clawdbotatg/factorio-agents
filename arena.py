@@ -326,6 +326,11 @@ def main():
         tcp_port=RCON[1],
         num_agents=n,
         fast=FAST,   # True: instant actions; False: legal-player physics
+        # MATCH PARITY: vanilla freeplay's starting kit (economic subset —
+        # no pistol/ammo, we run peaceful). FLE strips it by default, which
+        # handicaps agents vs any human run (WR-PACE §6 parity audit).
+        inventory={"burner-mining-drill": 1, "stone-furnace": 1,
+                   "iron-plate": 8, "wood": 1},
         peaceful=True,
         # ARENA_KEEP_WORLD=1 -> relaunch without wiping what's been built
         clear_entities=not os.environ.get("ARENA_KEEP_WORLD"),

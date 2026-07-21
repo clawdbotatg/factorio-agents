@@ -22,12 +22,14 @@ HERE = Path(__file__).parent
 RDIR = HERE / "configs" / "route"
 CHAMPS = HERE / "route-champions.jsonl"
 
-# Match-physics seed: hand-mining now costs vanilla time (2 game-s/item), so
-# the route front-loads the minimum hand-gather and gets drills up ASAP —
-# exactly the WR shape. Lab + research close the rubric once copper flows.
+# Kit-aware match-physics seed: the vanilla starting kit (1 drill, 1
+# furnace, 8 plates) means the FIRST move is fueling and placing the free
+# drill — the WR opening — not hand-mining an economy from nothing.
 SEED_PLAN = [
-    {"skill": "gather", "args": {"iron": 24, "coal": 15}},
-    {"skill": "gather", "args": {"stone": 20}},
+    {"skill": "gather", "args": {"coal": 12}},
+    {"skill": "mine_line", "args": {"resource": "iron", "n": 1}},
+    {"skill": "gather", "args": {"iron": 20, "stone": 8}},
+    {"skill": "keep_fed", "args": {}},
     {"skill": "bootstrap_place", "args": {}},
     {"skill": "bootstrap_feed", "args": {}},
     {"skill": "keep_fed", "args": {}},
