@@ -6,22 +6,22 @@
 cd "$(dirname "$0")"
 export PATH="/Applications/Docker.app/Contents/Resources/bin:$PATH"
 export PYTHONUNBUFFERED=1
-N=${1:-6}
+N=${1:-24}
 i=1
 while [ "$i" -le "$N" ]; do
-  label="s1-wide-$(date +%m%d)-r$i"
+  label="s1-wave2-$(date +%m%d)-r$i"
   echo "=== LEAGUE ROUND $i/$N ($label)"
   uv run python stage.py \
-    --lane configs/stage1-w00-base.json \
-    --lane configs/stage1-w01-base.json \
-    --lane configs/stage1-w02-base.json \
-    --lane configs/stage1-w03-base.json \
-    --lane configs/stage1-w04-pace.json \
-    --lane configs/stage1-w05-pace.json \
-    --lane configs/stage1-w06-pace.json \
-    --lane configs/stage1-w07-powerpack.json \
-    --lane configs/stage1-w08-powerpack.json \
-    --lane configs/stage1-w09-powerpack.json \
+    --lane configs/stage1-x00-base.json \
+    --lane configs/stage1-x01-base.json \
+    --lane configs/stage1-x02-base.json \
+    --lane configs/stage1-x03-base.json \
+    --lane configs/stage1-x04-cad10.json \
+    --lane configs/stage1-x05-cad10.json \
+    --lane configs/stage1-x06-cad10.json \
+    --lane configs/stage1-x07-cad45.json \
+    --lane configs/stage1-x08-cad45.json \
+    --lane configs/stage1-x09-cad45.json \
     --minutes 5 --label "$label" 2>&1 | grep -vE "^(Gym|Please|Users|See)"
   i=$((i + 1))
 done

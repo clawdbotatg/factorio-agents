@@ -519,6 +519,10 @@ of a blocked skill are auto-deferred for 40s.
 RULE: the CHECKLIST line in your status is GAME TRUTH. Nothing is built
 until the checklist says so — queueing a skill does not mean it succeeded.
 Use the AFFORD line to time your builds instead of guessing.
+RULE: DRILLS FIRST. Drills are the only ore income — a furnace without a
+drill feeding it is dead weight, and plate production flatlines without
+drills (measured: lanes that built furnaces before drills froze at 30
+plates). Sequence: bootstrap -> drills -> more furnaces -> power.
 - expand_smelting {n}: n extra furnaces near the iron patch; the autopilot
   feeds them from your ore inventory.
 - craft {item, n}: hand-craft any prototype by name (recursive — crafts

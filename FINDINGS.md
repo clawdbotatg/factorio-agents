@@ -187,6 +187,26 @@ its asymptote (brains ≈ the ~38 script across batches 4–7); the next gains
 are route engineering (copper/lab/research legs, unpinned-speed route
 search, wedge watchdog), not brain variants.
 
+## Wide-league verdict (s1-wide, 6 rounds × 10 lanes, n=60, 2026-07-20)
+
+First statistically real variant comparison (10 concurrent worlds per round,
+`league_s1.sh` + `league_report.py`):
+
+| variant | n | median | mean | power% |
+|---|---|---|---|---|
+| base | 24 | **27.0** | 26.1 | 25% |
+| pace-oracle | 18 | 24.2 | 25.5 | 33% |
+| powerpack plan | 18 | 24.1 | 26.2 | 33% |
+
+**Both variants are worthless** — medians within noise of baseline. Prompt
+pacing hints and a scripted bigger opening don't move Haiku; outcomes are
+dominated by execution variance and build ORDERING. The timeline data showed
+the real lever: lanes that build furnaces before drills flatline at 30
+plates (bootstrap batch only — furnaces without drills have no ore income),
+while drills-first lanes compound 30 → 122+. → **drills-first doctrine**
+added to the catalog; overnight wave 2 (24 rounds × 10 lanes) tests it plus
+the plan-cadence sweep (10s vs 20s vs 45s).
+
 ## Open items
 
 - Legal-mode skill layer: belt/inserter logistics skills (hand-hauling
