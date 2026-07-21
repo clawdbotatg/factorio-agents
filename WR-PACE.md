@@ -136,11 +136,14 @@ To stand up a real match mode:
 - **Throttle harvest to vanilla rate** (patch the FLE snapshot, or a
   proportional wait wrapped around `harvest_resource` in the prelude).
   **DONE 2026-07-20** (`_hv`, 2 game-s/item = vanilla 0.5/s). Parity audit
-  v1 (wiki-verified): walk — vanilla 8.9 tiles/s, FLE ≈ 4.7 → we walk at
-  HALF a real runner's speed (conservative, legal); craft — FLE appears to
-  overcharge vs vanilla times and cannot craft-while-walking (conservative);
-  harvest — throttled to exact vanilla. Net: current physics is
-  match-legal-or-stricter on every audited primitive.
+  v2 (2026-07-21, tick-measured): walk — **7.67 tiles/s straight-line vs
+  vanilla 8.9** (~14% pathing overhead; the earlier "half speed" claim was
+  a path-length artifact, corrected); craft — FLE appears to overcharge and
+  cannot craft-while-walking (conservative); harvest — throttled to exact
+  vanilla. One CHEAT FOUND INSIDE FLE: `fle_utils.avoid_entity` teleports
+  the character up to 10 tiles during blocked placements (and not always
+  back) — must be neutralized for strict match claims. Net: legal-or-
+  stricter except the avoid_entity teleport edge case.
 - **Parity-audit every primitive** against the wiki: craft time (does legal
   mode charge it? and vanilla crafts *while walking* — if FLE can't, we're
   legally *slower* than a human there), walk speed, reach (10-tile placement

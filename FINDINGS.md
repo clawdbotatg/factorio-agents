@@ -332,6 +332,21 @@ The meta-lesson is the seed-pool doctrine proven by blood: **anything that
 only wins on one map should die in the lab.** The route search must rotate
 random seeds, not just 424242.
 
+## The needle audit (2026-07-21 evening): search asymptoted, verbs are the gap
+
+User challenge, confirmed by the data: route search medians moved 21 → 25
+over ~500 generations while a novice human out-built the bot 3× live. The
+gains came from harness/skill fixes and matches — not from route
+reordering. Decomposition of the human's 3× edge: continuous interleaving
+vs per-quantum overhead (eval round-trips + controller sleeps), carpet
+batch placement vs polite n=2 lines, and adaptive targeting. Walk speed is
+NOT the gap (tick-measured 7.67 vs vanilla 8.9 t/s — the earlier 2× claim
+was a path-length artifact). **Reallocation: stop evolutionary search;
+build throughput verbs** — one-pass batch placement, multi-skill evals
+(cut round-trip overhead), then the belt pack (S2). Matches (bot-vs-bot
+nightly + human exhibitions) become the primary eval; the search returns
+when the verb set is worth optimizing over.
+
 ## Open items
 
 - Legal-mode skill layer: belt/inserter logistics skills (hand-hauling

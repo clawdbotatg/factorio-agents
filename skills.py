@@ -277,14 +277,28 @@ def sk_mine_line(resource="iron", n=3):
             print("furnace craft fail:", str(e)[:90])
     patch = nearest(_res(resource))
     placed = 0
-    # SINGLE ROW along x, drills facing DOWN onto a furnace row below, and
-    # the builder always works from a lane 4+ tiles SOUTH of everything —
-    # the first live match ended with the bot ENTOMBED inside a ring of its
-    # own drills (grid wrap put buildings on all four sides of it). Never
-    # build a shape that can enclose the builder.
+    # ONE-PASS CARPET ROW: walk the lane 4 south of the row ONCE, placing
+    # drills at reach (~10 tiles) as we pass — the technique a human uses to
+    # drop 15 drills in a minute (match 2: human carpet vs bot zigzag, 3x).
+    # Single open row, builder always south of everything: never enclose
+    # the builder (match 1 entombment).
+    lane_y = patch.y + 4
     for i in range(n):
-        base = Position(x=patch.x + i * 4 - (n // 2) * 4, y=patch.y)
-        d = try_place(Prototype.BurnerMiningDrill, base, Direction.DOWN)
+        bx = patch.x + i * 4 - (n // 2) * 4
+        if i % 2 == 0:  # step the lane every other drill, stay in reach
+            try:
+                _b(move_to, Position(x=bx, y=lane_y))
+            except Exception:
+                pass
+        d = None
+        for dy in (0, 1, -1):
+            try:
+                d = _b(place_entity, Prototype.BurnerMiningDrill,
+                       position=Position(x=bx, y=patch.y + dy),
+                       direction=Direction.DOWN)
+                break
+            except Exception:
+                continue
         if d is None:
             print(f"no spot for drill {i}")
             continue
@@ -900,9 +914,11 @@ def run_skills_agent(instance, idx: int, cfg: dict, shared_goal: str,
                              and time.time() - state["last_plan"] > 10))):
             plan_async(build_status(last_result, score))
         # wall-clock sleeps cost speed× game time at lab speeds — scale them
-        # so high-speed route evals aren't biased toward fewer-bigger quanta
+        # so high-speed route evals aren't biased toward fewer-bigger quanta.
+        # Base inter-quantum sleep cut 1 -> 0.2s (needle audit: per-quantum
+        # overhead is a top-3 component of the human's 3x live-match edge).
         wscale = float(cfg.get("wall_sleep_scale") or 1)
-        time.sleep((6 if idle_noop else 1) * wscale)
+        time.sleep((6 if idle_noop else 0.2) * wscale)
     log(name, "done", f"completed {max_steps} skill steps")
 
 
