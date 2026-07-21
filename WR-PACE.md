@@ -1,8 +1,10 @@
 # WR-PACE.md — critical audit: what it takes to run at speedrunner pace (2026-07-20)
 
 A top-to-bottom critique of the current system (5-min S1 legal-mode trials,
-skills-mode middle brain) against the actual goal: **a bot that runs the game
-as fast as the speedrunners** (WR 1:18:56; S1 power split 4:31). Grounded in
+skills-mode middle brain) against the actual goal: **bots that are genuinely
+good at the game**. The WR (1:18:56; S1 power split 4:31) is the pace
+*yardstick*, not the target — we're not competing on the human leaderboard,
+we're using its splits as the best available measure of "good". Grounded in
 batches 1–7 data, the probe timings, and the code as of `4592a6f`.
 
 ## 0. Where the data says we are (through s1-batch7)
@@ -95,24 +97,59 @@ Sources, in impact order: pathfinder wedges (heavy tail, eats a 90 s quantum),
 - Prompt drift: CATALOG says "re-consulted every ~90 seconds"; stage configs
   run `plan_every_s: 20`. Make the prompt read the real cadence.
 
-## 6. Write the legality doctrine down NOW
+## 6. The legality doctrine (DECIDED 2026-07-20): lab mode vs match mode
 
-Three anomalies will otherwise poison the "as fast as speedrunners" claim:
+Two modes, one hard line:
 
-1. **FLE hand-harvest is ~50× vanilla** (probe: 40 ore ≈ 1.6 s at 1×; vanilla
-   hand-mining is 0.5 ore/s). Our whole bootstrap leans on it. A human cannot
-   do this — which is why we "beat" the 4:31 power split at 1:32. Either
-   disclose the category ("FLE-legal") or self-limit harvest rates.
-2. **`_load_blueprint` spawns entities directly.** Humans can't paste without
-   construction bots. Ban it in match play; reference-save baking only. After
-   bots are online (S7), bot-built ghosts become human-legal — probe FLE's
-   support, because post-bots the WR *is* blueprint logistics.
-3. **N characters.** The arena already runs multiple agents in one world =
-   multiple pairs of hands. That's legitimately superhuman **as co-op** —
-   race the co-op category, not solo, when using it.
+- **Lab mode** — testing and benchmarking. Any advantage is allowed (time
+  compression, teleports, instant place, fast harvest, world forking, RCON
+  interventions) **as long as bots are measured relative to other bots with
+  the same advantage**. Lab numbers are for ranking variants, never for
+  bragging.
+- **Match mode** — game time: bots playing against each other for an
+  audience, or playing with/against a human (co-op included). **100% by the
+  rules, zero cheats.** All player actions through legal game mechanics at
+  real time; RCON may *observe* (that's just seeing the screen) but never
+  modify the world; no `_load_blueprint` (entity-spawning — humans can't
+  paste without construction bots; reference-save baking is a lab activity);
+  multiple characters are fine when the format says so (co-op is a legal
+  game mode), each character individually rule-bound.
 
-Tag every graded run with its category: `fle-legal-solo` / `human-legal-solo`
-/ `co-op`.
+**Within lab mode, cheats split into two classes — only one transfers:**
+
+1. **Physics-neutral** (unpinned `game.speed`, save/fork/reset, observation).
+   The game plays out identically, just faster — conclusions transfer to
+   match mode as-is. Use freely everywhere (this is §2's 8× search loop).
+2. **Physics-altering** (teleport, instant place, fast harvest, free items).
+   Valid for *relative* subsystem tests ("does brain A order skills better
+   than B, travel removed?") — but they change the optimal strategy itself,
+   so they rank brains/harnesses, NOT routes. Any route or logistics
+   conclusion from a physics-altering benchmark must be re-validated under
+   match physics before it counts.
+
+**The gap: match mode does not exist yet.** Today's "legal mode"
+(`fast: false`) still cheats: FLE hand-harvest is ~50× vanilla (probe: 40
+ore ≈ 1.6 s at 1×; vanilla is 0.5 ore/s) — the whole current bootstrap
+route leans on it, and it's why we "beat" the 4:31 power split at 1:32.
+To stand up a real match mode:
+
+- **Throttle harvest to vanilla rate** (patch the FLE snapshot, or a
+  proportional wait wrapped around `harvest_resource` in the prelude).
+- **Parity-audit every primitive** against the wiki: craft time (does legal
+  mode charge it? and vanilla crafts *while walking* — if FLE can't, we're
+  legally *slower* than a human there), walk speed, reach (10-tile placement
+  is vanilla-legal), inventory ops.
+- **No world-modifying RCON in match lanes** — the §4 wedge-nudge teleport
+  is a lab-mode tool; match mode needs a rules-legal unstick (reroute, mine
+  the blocker).
+- Tag every graded run `lab` / `match` in stage-runs.jsonl so numbers from
+  the two modes can never be accidentally compared.
+
+Consequence for the route program: the current S1 route is tuned to the
+harvest cheat. Under true match physics the optimum shifts toward the WR's
+drills-first shape — so STRATEGY.md's speedrun material becomes *more*
+load-bearing, and match-mode route search (§2, physics-neutral speedup only)
+is the search that matters for the product.
 
 ## 7. The sequenced path to a full WR-pace run
 
