@@ -44,12 +44,12 @@ def _b(fn, *a, **k):
     raise last
 
 def _zzz(total):
-    # FLE's sleep tool caps each call at 15s — chunk it or charges truncate
-    # (gauntlet-2: 200s of mining time silently became 15s)
-    left = int(total)
-    while left > 0:
-        sleep(min(15, left))
-        left -= 15
+    # WALL-CLOCK charge — unfoolable. FLE's sleep() adds zero elapsed ticks
+    # under spectator mode, so tick-aware charges silently became free
+    # (gauntlet-7: a 120s mining charge fit in an 18s pass). A local import
+    # works fine WITHIN an eval; only cross-eval imports die.
+    import time as _t
+    _t.sleep(max(0, float(total)))
 
 def _hv(p, amt, res=None):
     # MATCH PHYSICS: FLE hand-harvest is ~50x vanilla — the one big cheat in
@@ -714,7 +714,10 @@ def sk_scale_loop():
                       if getattr(e, "name", "") == "burner-mining-drill")
     power_built = any(getattr(e, "name", "") == "boiler" for e in ents)
     plates = inv_count(Prototype.IronPlate)
-    reserve = 0 if power_built else 55  # one power budget, then all-in
+    # bible sequencing: pairs 1-6 are the best money in S1 — reserve the
+    # power budget only AFTER the economy exists (gauntlet-7: a day-one
+    # 55-plate reserve deadlocked reinvestment at 2 furnaces forever)
+    reserve = 55 if (iron_drills >= 6 and not power_built) else 0
     invest = plates - reserve
     pairs = min(max(invest // 11, 0), 8)
     if pairs >= 1:
@@ -1087,6 +1090,18 @@ def run_skills_agent(instance, idx: int, cfg: dict, shared_goal: str,
             item = {"skill": "keep_fed",
                     "args": ({"radius": cfg["sweep_radius"]}
                              if cfg.get("sweep_radius") else {})}
+        # DEDUPE: skip a queued skill identical to the one that just
+        # succeeded (gauntlet-6: the brain re-queued bootstrap_place right
+        # after the route ran it — 30s of duplicate work the honest-physics
+        # opening cannot afford). One-shot skills only.
+        if (item and item["skill"] in ("bootstrap_place", "bootstrap_feed",
+                                       "power_craft", "power_build", "lab",
+                                       "research", "rocks", "belt_line")
+                and history and history[-1].startswith(_invocation(item))
+                and history[-1].endswith("ok")):
+            log(name, "defer", f"deduped repeat {item['skill']}")
+            with lock:
+                item = state["queue"].pop(0) if state["queue"] else None
         # BLOCKED cooldown: a skill that just reported a missing prerequisite
         # gets deferred instead of spam-retried (batch-4: brains re-queued
         # power 3-4x while plates smelted). Skip to the next runnable queue
