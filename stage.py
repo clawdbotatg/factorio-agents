@@ -161,9 +161,14 @@ def grade_s1(samples: list, window_ticks: int) -> dict:
 
     drills = end["built"].get("burner-mining-drill", 0)
     plates = end["prod"].get("iron-plate", 0)
+    # RUBRIC v2 (S1-BIBLE §4): power points require a real economy (>=4
+    # drills) — the optimizer found a degenerate 0-drill power-rush that
+    # outscored honest play. Power without an economy is a trophy, not a
+    # factory.
+    economy = drills >= 4
     score = (
-        (15 if in_window("power_built") else 0)
-        + (25 if in_window("power_gen") else 0)
+        (15 if in_window("power_built") and economy else 0)
+        + (25 if in_window("power_gen") and economy else 0)
         + 1.5 * min(drills, 20)
         + min(plates, 150) / 150 * 20
         + (5 if in_window("lab") else 0)
