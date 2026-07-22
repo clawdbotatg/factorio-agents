@@ -43,13 +43,20 @@ def _b(fn, *a, **k):
             sleep(4)
     raise last
 
+def _zzz(total):
+    # FLE's sleep tool caps each call at 15s — chunk it or charges truncate
+    # (gauntlet-2: 200s of mining time silently became 15s)
+    left = int(total)
+    while left > 0:
+        sleep(min(15, left))
+        left -= 15
+
 def _hv(p, amt):
     # MATCH PHYSICS: FLE hand-harvest is ~50x vanilla — the one big cheat in
     # "legal" mode (WR-PACE §6). Charge vanilla hand-mining time (0.5
-    # items/s -> 2 game-seconds per item) via tick-aware sleep, so the
-    # charge is correct at any lab speed. Parity audit of craft/walk: TODO.
+    # items/s -> 2 game-seconds per item) via tick-aware CHUNKED sleep.
     r = _b(harvest_resource, p, amt)
-    sleep(int(amt * 2))
+    _zzz(amt * 2)
     return r
 
 def _escape():
@@ -95,12 +102,17 @@ def _near(pos):
 
 def _fuel(e, qty):
     # coal first, WOOD as fallback — a map can fence off its coal (first
-    # live match: coal under crash-site wreckage; boiler fueling failed one
-    # step from power while wood stood everywhere)
-    if inv_count(Prototype.Coal) > 6:
-        return _touch(insert_item, Prototype.Coal, e, quantity=qty)
-    if inv_count(Prototype.Wood) > 2:
-        return _touch(insert_item, Prototype.Wood, e, quantity=min(qty * 2, 10))
+    # live match: coal under crash-site wreckage). Insert what we actually
+    # HOLD (gauntlet-1: asking for 30 with 20 in pocket errored as "no
+    # fuel" while holding plenty).
+    coal = inv_count(Prototype.Coal)
+    if coal > 6:
+        return _touch(insert_item, Prototype.Coal, e,
+                      quantity=min(qty, coal - 4))
+    wood = inv_count(Prototype.Wood)
+    if wood > 2:
+        return _touch(insert_item, Prototype.Wood, e,
+                      quantity=min(qty * 2, wood - 1, 10))
     raise Exception("no fuel in inventory (coal or wood)")
 
 def _touch(fn, *a, **k):
@@ -198,7 +210,7 @@ def sk_bootstrap_place():
     # 4 furnaces worth of stone: 2 placed + 1 reserved for the boiler craft
     # (sk_power) + 1 spare for a mine_line drop furnace
     for res, proto, need, grab in [("stone", Prototype.Stone, 20, 22),
-                                   ("coal", Prototype.Coal, 10, 20),
+                                   ("coal", Prototype.Coal, 24, 32),
                                    ("iron", Prototype.IronOre, 24, 30)]:
         if inv_count(proto) < need:
             try:
@@ -237,7 +249,7 @@ def sk_bootstrap_feed():
         try:
             if e.name != "stone-furnace":
                 continue
-            _fuel(e, 10)
+            _fuel(e, 30)
             _touch(insert_item, Prototype.IronOre, e, quantity=24)
             fed += 1
         except Exception as err:
@@ -248,6 +260,19 @@ def sk_bootstrap_feed():
 def sk_mine_line(resource="iron", n=3):
     print(f"SKILL mine_line {resource} n={n}")
     plates = inv_count(Prototype.IronPlate)
+    if plates < n * 9:
+        # the wealth may be sitting IN the furnaces (gauntlet-2: 183 plates
+        # produced, 8 in pocket, mine_line refusing to build) — sweep first
+        try:
+            for e in get_entities(radius=80):
+                if getattr(e, "name", "") == "stone-furnace":
+                    try:
+                        _touch(extract_item, Prototype.IronPlate, e, quantity=50)
+                    except Exception:
+                        pass
+        except Exception:
+            pass
+        plates = inv_count(Prototype.IronPlate)
     craftable = inv_count(Prototype.BurnerMiningDrill) + plates // 9
     if craftable == 0:
         print(f"BLOCKED mine_line: 0 drills craftable (iron plates={plates}, "
@@ -311,7 +336,7 @@ def sk_mine_line(resource="iron", n=3):
             continue
         placed += 1
         try:
-            _touch(insert_item, Prototype.Coal, d, quantity=8)
+            _touch(insert_item, Prototype.Coal, d, quantity=30)
         except Exception:
             pass
         f = None
@@ -501,7 +526,7 @@ def sk_keep_fed(radius=150):
                         pass
                     continue
                 try:
-                    _fuel(e, 4)
+                    _fuel(e, 40)
                     fueled += 1
                 except Exception:
                     pass
@@ -514,12 +539,12 @@ def sk_keep_fed(radius=150):
                         pass
                 if inv_count(Prototype.IronOre) > 40:
                     try:
-                        _touch(insert_item, Prototype.IronOre, e, quantity=15)
+                        _touch(insert_item, Prototype.IronOre, e, quantity=45)
                     except Exception:
                         pass
             elif nm in ("burner-mining-drill", "boiler", "burner-inserter"):
                 try:
-                    _fuel(e, 4)
+                    _fuel(e, 40)
                     fueled += 1
                 except Exception:
                     pass
@@ -596,6 +621,53 @@ def sk_research(tech="Automation"):
     except Exception as e:
         print("research fail:", str(e)[:90])
 
+def sk_rocks():
+    """Mine nearby rocks + trees (the WR opening: a huge rock = ~37 stone
+    + 37 coal in ~3s — S1-BIBLE's 50x discount, fully vanilla-legal).
+    Aims off-patch around the iron anchor; time is charged honestly by
+    what actually arrived (ore at vanilla 2s/item if any leaks in)."""
+    print("SKILL rocks")
+    pre = {n: inv_count(getattr(Prototype, n))
+           for n in ("Stone", "Coal", "Wood", "IronOre", "CopperOre")}
+    try:
+        ip = nearest(_res("iron"))
+    except Exception as e:
+        print("rocks: no iron anchor", str(e)[:50])
+        return
+    mined = 0
+    # rocks live near spawn/crash site — check there FIRST; iron-adjacent
+    # offsets last. Abort a spot if it turns out to be ore (patch), not rock.
+    spots = [Position(x=0, y=0), Position(x=15, y=15), Position(x=-15, y=-15),
+             Position(x=ip.x + 18, y=ip.y + 18),
+             Position(x=ip.x - 18, y=ip.y - 18)]
+    for t in spots:
+        pre_ore = inv_count(Prototype.IronOre) + inv_count(Prototype.CopperOre)
+        pre_rock = inv_count(Prototype.Stone) + inv_count(Prototype.Coal)
+        try:
+            _b(move_to, Position(x=t.x, y=t.y + 3))
+            got = _b(harvest_resource, t, 60, 10)
+            mined += got or 0
+        except Exception as e:
+            if "Nothing within reach" not in str(e):
+                print("rocks spot fail:", str(e)[:60])
+            continue
+        ore_d = inv_count(Prototype.IronOre) + inv_count(Prototype.CopperOre) - pre_ore
+        rock_d = inv_count(Prototype.Stone) + inv_count(Prototype.Coal) - pre_rock
+        if ore_d > rock_d:
+            print("spot was ore patch, not rocks — moving on")
+        if rock_d >= 40:
+            break
+    post = {n: inv_count(getattr(Prototype, n))
+            for n in ("Stone", "Coal", "Wood", "IronOre", "CopperOre")}
+    d_ore = max(0, post["IronOre"] - pre["IronOre"]) + \
+        max(0, post["CopperOre"] - pre["CopperOre"])
+    d_wood = max(0, post["Wood"] - pre["Wood"])
+    d_rock = max(0, post["Stone"] - pre["Stone"]) + \
+        max(0, post["Coal"] - pre["Coal"])
+    _zzz(d_ore * 2 + d_wood * 0.25 + d_rock * 0.05)
+    print(f"rocks yield: +{d_rock} stone/coal, +{d_wood} wood, +{d_ore} ore")
+    print(inspect_inventory())
+
 def sk_status():
     inv = inspect_inventory()
     ents = {}
@@ -662,6 +734,7 @@ SKILLS = {  # name -> (timeout_s, allowed arg keys)
     # Short stage sprints should cap these via cfg "timeout_cap" — one hung
     # skill ate 428s of a 300s stage window in s1-batch2.
     "gather":          (280, {"stone", "coal", "iron", "copper"}),
+    "rocks":           (150, set()),
     "bootstrap_place": (150, set()),
     "bootstrap_feed":  (120, set()),
     "mine_line":       (340, {"resource", "n"}),
@@ -675,19 +748,31 @@ SKILLS = {  # name -> (timeout_s, allowed arg keys)
 }
 
 DEFAULT_PLAN = [
-    # per-resource gather quanta: a pathfinder wedge costs one 90s slot,
-    # not the whole shopping trip
-    {"skill": "gather", "args": {"iron": 30, "coal": 25}},
-    {"skill": "gather", "args": {"stone": 22}},
+    # AGGRESSIVE ROUTE (target: human title pace). Rocks fund the furnace
+    # fleet instantly; then outpost WAVES — stack-feeding means nothing
+    # needs babysitting between waves. The factory must grow.
+    {"skill": "rocks", "args": {}},
+    {"skill": "gather", "args": {"iron": 24}},
     {"skill": "bootstrap_place", "args": {}},
     {"skill": "bootstrap_feed", "args": {}},
-    {"skill": "gather", "args": {"iron": 40, "coal": 20}},
+    {"skill": "mine_line", "args": {"resource": "iron", "n": 4}},
     {"skill": "keep_fed", "args": {}},
-    {"skill": "gather", "args": {"stone": 15}},
-    {"skill": "mine_line", "args": {"resource": "iron", "n": 2}},
+    {"skill": "mine_line", "args": {"resource": "iron", "n": 8}},
+    {"skill": "mine_line", "args": {"resource": "coal", "n": 2}},
     {"skill": "keep_fed", "args": {}},
     {"skill": "power_craft", "args": {}},
     {"skill": "power_build", "args": {}},
+    {"skill": "mine_line", "args": {"resource": "iron", "n": 8}},
+    {"skill": "keep_fed", "args": {}},
+    {"skill": "mine_line", "args": {"resource": "copper", "n": 4}},
+    {"skill": "keep_fed", "args": {}},
+    {"skill": "lab", "args": {}},
+    {"skill": "research", "args": {}},
+    {"skill": "mine_line", "args": {"resource": "iron", "n": 8}},
+    {"skill": "keep_fed", "args": {}},
+    {"skill": "mine_line", "args": {"resource": "stone", "n": 2}},
+    {"skill": "mine_line", "args": {"resource": "iron", "n": 8}},
+    {"skill": "keep_fed", "args": {}},
 ]
 
 CATALOG = """You are the STRATEGY BRAIN for a Factorio agent. You never write
@@ -699,6 +784,8 @@ job is expansion strategy: what to build next, how much, in what order.
 
 SKILL CATALOG (args -> effect, rough prerequisites):
 - gather {stone,coal,iron,copper}: hand-mine raw resources. Fast. No prereqs.
+- rocks {}: mine rocks+trees near the iron patch — a huge rock is ~37
+  stone + 37 coal in seconds (50x faster than hand-mining). OPEN WITH THIS.
 - bootstrap_place {}: craft 3 stone furnaces (self-gathers missing inputs)
   and place 2 at the iron patch. Follow with bootstrap_feed.
 - bootstrap_feed {}: load nearby furnaces with coal + iron ore from your
