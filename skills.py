@@ -51,11 +51,15 @@ def _zzz(total):
         sleep(min(15, left))
         left -= 15
 
-def _hv(p, amt):
+def _hv(p, amt, res=None):
     # MATCH PHYSICS: FLE hand-harvest is ~50x vanilla — the one big cheat in
     # "legal" mode (WR-PACE §6). Charge vanilla hand-mining time (0.5
     # items/s -> 2 game-seconds per item) via tick-aware CHUNKED sleep.
-    r = _b(harvest_resource, p, amt)
+    # res: state INTENT — the untyped path silently topped-up with IRON.
+    if res is not None:
+        r = _b(harvest_resource, p, amt, 10, resource=res)
+    else:
+        r = _b(harvest_resource, p, amt)
     _zzz(amt * 2)
     return r
 
@@ -181,7 +185,7 @@ def sk_gather(stone=0, coal=0, iron=0, copper=0):
             try:
                 p = nearest(_res(name))
                 _b(move_to, p)
-                _hv( p, amt)
+                _hv(p, amt, _res(name))
                 print(f"harvested {amt} {name}")
                 break
             except Exception as e:
@@ -216,7 +220,7 @@ def sk_bootstrap_place():
             try:
                 p = nearest(_res(res))
                 _b(move_to, p)
-                _hv( p, grab)
+                _hv(p, grab, _res(res))
                 print(f"self-provisioned {grab} {res}")
             except Exception as e:
                 print(f"{res} self-provision fail: {str(e)[:60]}")
@@ -307,16 +311,23 @@ def sk_mine_line(resource="iron", n=3):
             _b(craft_item, Prototype.StoneFurnace, min(furn_want, furn_craftable))
         except Exception as e:
             print("furnace craft fail:", str(e)[:90])
-    patch = nearest(_res(resource))
+    anchor = nearest(_res(resource))
+    # PATCH-AWARE ROW (gauntlet probe: blind offsets placed 1/4 — read the
+    # patch's real bounds and lay the row across its long axis)
+    xs = None
+    try:
+        rp = get_resource_patch(_res(resource), anchor)
+        bb = rp.bounding_box
+        lx, rx = bb.left_top.x + 1, bb.right_bottom.x - 1
+        row_y = (bb.left_top.y + bb.right_bottom.y) / 2
+        xs = [lx + 4 * i for i in range(int(max(1, (rx - lx) // 4)) + 1)][:n]
+        patch = Position(x=(lx + rx) / 2, y=row_y)
+    except Exception:
+        patch = anchor
     placed = 0
-    # ONE-PASS CARPET ROW: walk the lane 4 south of the row ONCE, placing
-    # drills at reach (~10 tiles) as we pass — the technique a human uses to
-    # drop 15 drills in a minute (match 2: human carpet vs bot zigzag, 3x).
-    # Single open row, builder always south of everything: never enclose
-    # the builder (match 1 entombment).
     lane_y = patch.y + 4
     for i in range(n):
-        bx = patch.x + i * 4 - (n // 2) * 4
+        bx = xs[i] if xs and i < len(xs) else patch.x + i * 4 - (n // 2) * 4
         if i % 2 == 0:  # step the lane every other drill, stay in reach
             try:
                 _b(move_to, Position(x=bx, y=lane_y))
@@ -496,14 +507,14 @@ def sk_keep_fed(radius=150):
         try:
             p = nearest(_res("coal"))
             _b(move_to, p)
-            _hv( p, 60)
+            _hv(p, 60, _res("coal"))
             acts.append("mined 60 coal")
         except Exception as e:
             acts.append("coal restock fail " + str(e)[:40])
             try:
                 w = nearest(_res("wood"))
                 _b(move_to, w)
-                _hv(w, 12)
+                _hv(w, 12, _res("wood"))
                 acts.append("coal unreachable -> chopped 12 wood for fuel")
             except Exception as e2:
                 acts.append("wood fallback fail " + str(e2)[:40])
@@ -513,6 +524,26 @@ def sk_keep_fed(radius=150):
         ents = []
     fueled = swept = 0
     collectors = set(COAL_COLLECTORS)
+    # FAIR-SHARE fueling (gauntlet-3: 40-coal stacks drained the pocket
+    # into 3 machines and starved the other 9 — 12 pairs, 197 plates):
+    # split held coal across every burner, floor 5, cap 40
+    belts = [e for e in ents if getattr(e, "name", "") == "transport-belt"]
+    if belts and inv_count(Prototype.Coal) > 30:
+        dumped = 0
+        for b in belts[:6]:
+            try:
+                _touch(insert_item, Prototype.Coal, b, quantity=8)
+                dumped += 8
+            except Exception:
+                pass
+        if dumped:
+            acts.append(f"belt-fed {dumped} coal")
+    burners = [e for e in ents if getattr(e, "name", "") in
+               ("stone-furnace", "burner-mining-drill", "boiler",
+                "burner-inserter")]
+    share = 40
+    if burners:
+        share = max(5, min(40, (inv_count(Prototype.Coal) - 10) // max(len(burners), 1)))
     for e in ents:
         try:
             nm = e.name
@@ -526,7 +557,7 @@ def sk_keep_fed(radius=150):
                         pass
                     continue
                 try:
-                    _fuel(e, 40)
+                    _fuel(e, share)
                     fueled += 1
                 except Exception:
                     pass
@@ -544,7 +575,7 @@ def sk_keep_fed(radius=150):
                         pass
             elif nm in ("burner-mining-drill", "boiler", "burner-inserter"):
                 try:
-                    _fuel(e, 40)
+                    _fuel(e, share)
                     fueled += 1
                 except Exception:
                     pass
@@ -593,7 +624,7 @@ def sk_lab():
         try:
             w = nearest(_res("wood"))
             _b(move_to, w)
-            _hv(w, 2)
+            _hv(w, 2, _res("wood"))
             _b(craft_item, Prototype.SmallElectricPole, 2)
         except Exception as e:
             print("pole prep fail:", str(e)[:70])
@@ -668,6 +699,102 @@ def sk_rocks():
     print(f"rocks yield: +{d_rock} stone/coal, +{d_wood} wood, +{d_ore} ore")
     print(inspect_inventory())
 
+def sk_scale_loop():
+    """THE CHAMPION'S META, verbatim (title-match winner's coaching): run
+    the oven line and take all the metal -> make miners out of it -> lay
+    them down -> run the miner lines for coal -> refuel -> repeat. One call
+    = one full babysit+reinvest cycle. This IS the first five minutes."""
+    print("SKILL scale_loop")
+    sk_keep_fed(radius=90)  # sweep ovens (plates) + coal collectors, refuel
+    try:
+        ents = get_entities(radius=90)
+    except Exception:
+        ents = []
+    iron_drills = sum(1 for e in ents
+                      if getattr(e, "name", "") == "burner-mining-drill")
+    power_built = any(getattr(e, "name", "") == "boiler" for e in ents)
+    plates = inv_count(Prototype.IronPlate)
+    reserve = 0 if power_built else 55  # one power budget, then all-in
+    invest = plates - reserve
+    pairs = min(max(invest // 11, 0), 8)
+    if pairs >= 1:
+        # NEFRUMS MIX (the WR's 4:31 burner census: 10 iron / 16 coal /
+        # 6 copper / 4 stone): place where the deficit vs the WR shape is
+        # biggest — coal-heavy fuels everything else
+        targets = {"iron": 10, "coal": 16, "copper": 6, "stone": 4}
+        have = {"iron": 0, "coal": 0, "copper": 0, "stone": 0}
+        for e in ents:
+            if getattr(e, "name", "") == "burner-mining-drill":
+                pass  # per-resource attribution below via position is
+                # overkill; approximate with COAL_COLLECTORS + totals
+        have["coal"] = len(COAL_COLLECTORS)
+        have["iron"] = max(0, iron_drills - have["coal"])
+        deficits = sorted(targets, key=lambda r: have.get(r, 0) - targets[r])
+        r1 = deficits[0]
+        r2 = deficits[1] if pairs >= 4 else None
+        n1 = pairs if not r2 else max(pairs // 2, 2)
+        print(f"REINVEST: {plates} plates -> {pairs} pairs "
+              f"({n1} {r1}{', rest ' + r2 if r2 else ''}; reserve {reserve})")
+        sk_mine_line(resource=r1, n=n1)
+        if r2 and pairs - n1 >= 1:
+            sk_mine_line(resource=r2, n=pairs - n1)
+    else:
+        print(f"holding: {plates} plates (reserve {reserve})")
+    print(inspect_inventory())
+
+def sk_belt_line():
+    """Automate furnace fueling: coal belt behind the furnace row + one
+    burner inserter per furnace (inserters self-refuel from the coal they
+    handle — perpetual). Probe-verified geometry: inserter at fy+2 facing
+    UP, belt at fy+3. Needs ~1.5 Fe/belt + 1 gear+plate/inserter."""
+    print("SKILL belt_line")
+    try:
+        ents = get_entities(radius=80)
+    except Exception:
+        ents = []
+    furns = sorted([e for e in ents if e.name == "stone-furnace"],
+                   key=lambda e: e.position.x)
+    if len(furns) < 2:
+        print("BLOCKED belt_line: need a furnace row first (mine_line).")
+        return
+    rows = {}
+    for f in furns:
+        rows.setdefault(round(f.position.y), []).append(f)
+    row = max(rows.values(), key=len)
+    row.sort(key=lambda e: e.position.x)
+    fy = row[0].position.y
+    belt_y = fy + 3
+    lx, rx = row[0].position.x - 3, row[-1].position.x + 3
+    need_belts = int(rx - lx) + 2
+    for proto, qty in ((Prototype.TransportBelt, need_belts),
+                       (Prototype.BurnerInserter, len(row))):
+        have = inv_count(proto)
+        if have < qty:
+            try:
+                _b(craft_item, proto, qty - have)
+            except Exception as e:
+                print(f"craft fail {proto}: {str(e)[:70]}")
+    try:
+        _b(move_to, Position(x=lx, y=belt_y + 2))
+        connect_entities(Position(x=lx, y=belt_y),
+                         Position(x=rx, y=belt_y), Prototype.TransportBelt)
+    except Exception as e:
+        print("belt fail:", str(e)[:90])
+        return
+    made = 0
+    for f in row:
+        try:
+            _b(move_to, Position(x=f.position.x, y=belt_y + 2))
+            ins = _b(place_entity, Prototype.BurnerInserter,
+                     position=Position(x=f.position.x, y=fy + 2),
+                     direction=Direction.UP)
+            _touch(insert_item, Prototype.Coal, ins, quantity=2)
+            made += 1
+        except Exception as e:
+            print("inserter fail:", str(e)[:70])
+    print(f"belt line live: {made}/{len(row)} furnaces automated "
+          "(keep_fed now feeds the BELT, not each machine)")
+
 def sk_status():
     inv = inspect_inventory()
     ents = {}
@@ -738,6 +865,8 @@ SKILLS = {  # name -> (timeout_s, allowed arg keys)
     "bootstrap_place": (150, set()),
     "bootstrap_feed":  (120, set()),
     "mine_line":       (340, {"resource", "n"}),
+    "belt_line":       (200, set()),
+    "scale_loop":      (340, set()),
     "power_craft":     (120, set()),
     "power_build":     (240, set()),
     "lab":             (240, set()),
@@ -748,31 +877,27 @@ SKILLS = {  # name -> (timeout_s, allowed arg keys)
 }
 
 DEFAULT_PLAN = [
-    # AGGRESSIVE ROUTE (target: human title pace). Rocks fund the furnace
-    # fleet instantly; then outpost WAVES — stack-feeding means nothing
-    # needs babysitting between waves. The factory must grow.
+    # THE CHAMPION ROUTE: rocks fund the start, then babysit+reinvest
+    # cycles (scale_loop) exactly like the human plays the first five
+    # minutes; power once affordable; belts when the rows are long.
     {"skill": "rocks", "args": {}},
     {"skill": "gather", "args": {"iron": 24}},
     {"skill": "bootstrap_place", "args": {}},
     {"skill": "bootstrap_feed", "args": {}},
-    {"skill": "mine_line", "args": {"resource": "iron", "n": 4}},
-    {"skill": "keep_fed", "args": {}},
-    {"skill": "mine_line", "args": {"resource": "iron", "n": 8}},
-    {"skill": "mine_line", "args": {"resource": "coal", "n": 2}},
-    {"skill": "keep_fed", "args": {}},
+    {"skill": "scale_loop", "args": {}},
+    {"skill": "scale_loop", "args": {}},
     {"skill": "power_craft", "args": {}},
     {"skill": "power_build", "args": {}},
-    {"skill": "mine_line", "args": {"resource": "iron", "n": 8}},
-    {"skill": "keep_fed", "args": {}},
-    {"skill": "mine_line", "args": {"resource": "copper", "n": 4}},
-    {"skill": "keep_fed", "args": {}},
+    {"skill": "scale_loop", "args": {}},
+    {"skill": "scale_loop", "args": {}},
+    {"skill": "belt_line", "args": {}},
+    {"skill": "mine_line", "args": {"resource": "copper", "n": 3}},
+    {"skill": "scale_loop", "args": {}},
     {"skill": "lab", "args": {}},
     {"skill": "research", "args": {}},
-    {"skill": "mine_line", "args": {"resource": "iron", "n": 8}},
-    {"skill": "keep_fed", "args": {}},
-    {"skill": "mine_line", "args": {"resource": "stone", "n": 2}},
-    {"skill": "mine_line", "args": {"resource": "iron", "n": 8}},
-    {"skill": "keep_fed", "args": {}},
+    {"skill": "scale_loop", "args": {}},
+    {"skill": "scale_loop", "args": {}},
+    {"skill": "scale_loop", "args": {}},
 ]
 
 CATALOG = """You are the STRATEGY BRAIN for a Factorio agent. You never write
@@ -784,6 +909,9 @@ job is expansion strategy: what to build next, how much, in what order.
 
 SKILL CATALOG (args -> effect, rough prerequisites):
 - gather {stone,coal,iron,copper}: hand-mine raw resources. Fast. No prereqs.
+- scale_loop {}: ONE full babysit+reinvest cycle: sweep ovens for\n  plates -> craft+lay as many new drill pairs as plates afford -> sweep\n  coal -> refuel lines -> auto-extend coal mining. Chain these\n  back-to-back for the whole early game. THE core scaling verb.\n- belt_line {}: automate furnace fueling (coal belt + inserters) — after
+  this, keep_fed feeds ONE belt instead of every machine. Build it once
+  your first furnace row exists; it is what lets the factory scale.
 - rocks {}: mine rocks+trees near the iron patch — a huge rock is ~37
   stone + 37 coal in seconds (50x faster than hand-mining). OPEN WITH THIS.
 - bootstrap_place {}: craft 3 stone furnaces (self-gathers missing inputs)
