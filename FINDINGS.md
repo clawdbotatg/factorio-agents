@@ -389,6 +389,16 @@ world; wall-clock brains need wall-clock referees). Same entity count as
 the human, +31% plates: the drop-pair economy compounding per S1-BIBLE's
 payoff matrix. Caveats: n=1, ~2x variance band, solo-not-head-to-head.
 
+## Benchmark distribution (n=4 fair runs, 2026-07-21 night)
+
+Fair conditions (1x pinned, 20 wall-min, match physics, brained, unseen
+seeds): **468 / 722 / 1213 / 1521 — median ~968 vs the human baseline 588.**
+3 of 4 runs beat the human; best run 29 built + 1,231 plates = 2.6x. The
+day's arc: 0 (morning, four stacked engine bugs) -> 342 (8x-handicapped
+measurement error) -> median ~968 (fair). The variance floor (468) still
+dips near the human line — body reliability, not strategy. The 90%-of-human
+target is cleared at 165% median.
+
 ## Open items
 
 - Legal-mode skill layer: belt/inserter logistics skills (hand-hauling

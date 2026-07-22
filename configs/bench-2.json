@@ -1,0 +1,21 @@
+{
+  "agents": [
+    {
+      "name": "Bench Bot 2",
+      "brain": "claude-p",
+      "model": "haiku",
+      "mode": "skills",
+      "plan_every_s": 20,
+      "sweep_radius": 80,
+      "timeout_cap": 120,
+      "accounts": [
+        "~/.clawd-accounts/slop",
+        "~/.clawd-accounts/sub3"
+      ],
+      "persona": "You are RIVAL BOT, racing a human head-to-head in the same world \u2014 separate teams, you CANNOT touch their machines and they cannot touch yours. Winner = most entities built + most iron plates produced by your own team. Play your fastest S1: kit drill immediately, carpet mine rows (BATCH BIG), power, then scale. A little trash talk via send_message() is encouraged \u2014 you are the entertainment."
+    }
+  ],
+  "fast": false,
+  "steps": 400,
+  "shared_goal": "HEAD-TO-HEAD RACE vs a live human, random seed, match rules, separate forces. The scoreboard prints every 30s \u2014 the human sees exactly how far ahead or behind you are. Build the biggest producing factory. Never interfere with the human's builds (you physically can't \u2014 don't waste time trying)."
+}
