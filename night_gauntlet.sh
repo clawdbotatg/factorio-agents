@@ -21,6 +21,8 @@ for _ in range(90):
     except Exception:
         time.sleep(4)
 PYEOF
+  pkill -f coop_unstick 2>/dev/null
+  nohup uv run python coop_unstick.py > coop-unstick.log 2>&1 &
   ARENA_CONFIG=configs/vs-human.json ARENA_BOT_FORCE=1 ARENA_NO_RENDER=1 \
     ARENA_RCON_PORT=27000 FLE_SPECTATOR_MODE=1 RUN_LABEL=night-$i \
     nohup uv run python arena.py > night-run-$i.log 2>&1 &

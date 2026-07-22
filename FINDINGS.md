@@ -415,6 +415,36 @@ ore remains is always wrong). Match record: human 5-0 (LEADERBOARD.md).
 The honest gap in one line: the human places ~10 buildings/min under
 pressure; the bot places ~1 while narrating.
 
+## The gauntlet + night distribution (2026-07-21/22): the honest number is 386
+
+User mandate: match their 3,227 title score or fail. Thirteen rate-gated
+attempts (kill at 3/7/11-min pace gates, autopsy, fix, relaunch) killed ten
+real defects — fuel thresholds that refused the kit's single wood, harvest
+top-ups silently retargeting to iron, TWO time-charge evasion holes (FLE
+sleep caps at 15s/call AND adds zero ticks under spectator mode — every
+prior "win" ran discounted physics; the 722/1213/1521 'fair benchmarks'
+are all charge-evasion-inflated), duplicate-work brains, zombie arena
+processes double-driving one character, a reinvestment deadlock, and
+map-blind placement. Route evolved through the champion's own coaching:
+kit-drill-first, then THE OVEN LINE ("run down a line of ovens, get all
+the metal, make miners out of them").
+
+**First fully honest distribution (n=14 complete 20-min runs, pinned lab
+seed, vanilla physics, wall-clock charges, unstick guard): median 390,
+max 669, min 142.** Peak 3-min pace observed: 329 (1.5x the human's 220).
+The human's 3,227 stands ~8x above the honest median.
+
+What the gap is made of, in order: (1) the human's PARALLELISM — crafting
+while walking, placing while planning — which FLE structurally denies;
+(2) ~2x run-to-run variance (placement luck, plan divergence) that no
+constant-tuning fixes; (3) mid-game reinvestment latency. Conclusions:
+matching a fast human inside 20 minutes under identical hand-economics
+requires either env-level parity work (craft-while-walking is now the
+biggest single legality-parity gap, in the HUMAN'S favor) or automation
+verbs whose payoff compounds (belt-fed drills, assembler-made drills)
+— plus variance kill at the body layer. Single-run gates execute good
+builds for dice rolls; distributions of N>=8 are the only oracle.
+
 ## Open items
 
 - Legal-mode skill layer: belt/inserter logistics skills (hand-hauling
