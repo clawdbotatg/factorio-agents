@@ -399,6 +399,22 @@ measurement error) -> median ~968 (fair). The variance floor (468) still
 dips near the human line — body reliability, not strategy. The 90%-of-human
 target is cleared at 165% median.
 
+## Title match (2026-07-21 night): human 3,227 — bot 372
+
+The first verified-fair head-to-head. The human quintupled their own
+baseline under match pressure (588 benchmark -> 3,227 live: 111 built,
+2,117 plates) — **the human learning curve outpaces the bot's ship rate**,
+and benchmarking against a static human baseline undersells the target.
+The bot built its first-ever live power plant, then hit its two new
+signature failures: (1) `_escape` self-rescue **cannibalized the power
+plant** (engines, then pipes) to exit a self-made pocket — fixed: sacrifice
+order (cheap/rebuildable first, power infra never); (2) terminal
+**surrender state** — final plan "run complete and stable, priorities: []"
+while losing 8:1 — fixed: NEVER SURRENDER doctrine (an empty queue while
+ore remains is always wrong). Match record: human 5-0 (LEADERBOARD.md).
+The honest gap in one line: the human places ~10 buildings/min under
+pressure; the bot places ~1 while narrating.
+
 ## Open items
 
 - Legal-mode skill layer: belt/inserter logistics skills (hand-hauling

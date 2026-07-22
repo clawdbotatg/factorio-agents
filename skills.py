@@ -54,15 +54,22 @@ def _hv(p, amt):
 
 def _escape():
     # Self-rescue (match-legal: mining YOUR OWN building): if every path out
-    # fails, pick up one adjacent own entity to open a gap. First live match
-    # ended with the bot entombed in its own mine line — a human had to dig
-    # it out. The item returns to inventory; nothing is lost.
+    # fails, pick up one adjacent own entity to open a gap. The item returns
+    # to inventory. SACRIFICE ORDER matters: title match, the bot ate its
+    # own steam engines and pipes to escape — never again. Cheap and
+    # rebuildable first; power infrastructure NEVER.
+    NEVER = ("steam-engine", "boiler", "offshore-pump", "lab", "pipe",
+             "pipe-to-ground", "character")
+    ORDER = ("wooden-chest", "stone-furnace", "transport-belt",
+             "burner-mining-drill")
     try:
-        for e in get_entities(radius=3):
+        ents = [e for e in get_entities(radius=3)
+                if getattr(e, "name", "") not in NEVER]
+        ents.sort(key=lambda e: ORDER.index(e.name)
+                  if e.name in ORDER else len(ORDER))
+        for e in ents:
             try:
-                if e.name == "character":
-                    continue
-                got = _b(pickup_entity, e)
+                _b(pickup_entity, e)
                 print(f"ESCAPE: picked up own {e.name} to open a path")
                 return True
             except Exception:
@@ -721,6 +728,11 @@ RULE: BATCH BIG. If the AFFORD line says 6 drills are craftable, order 6 —
 timid n=2 mine lines lose to a novice human hand-placing 15 (measured,
 live match). The skill caps itself to what's affordable; you never need
 to under-ask.
+RULE: NEVER SURRENDER. An empty priorities list means you believe nothing
+could possibly raise your score — while ore remains in the ground that is
+never true. Title match: the bot declared "run complete and stable" with
+an empty queue while losing 8:1. If in doubt: more drill pairs. The
+factory must grow.
 - expand_smelting {n}: n extra furnaces near the iron patch; the autopilot
   feeds them from your ore inventory.
 - craft {item, n}: hand-craft any prototype by name (recursive — crafts
