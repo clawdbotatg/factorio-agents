@@ -110,13 +110,15 @@ def _fuel(e, qty):
     # HOLD (gauntlet-1: asking for 30 with 20 in pocket errored as "no
     # fuel" while holding plenty).
     coal = inv_count(Prototype.Coal)
-    if coal > 6:
+    if coal >= 1:
         return _touch(insert_item, Prototype.Coal, e,
-                      quantity=min(qty, coal - 4))
+                      quantity=max(1, min(qty, coal - 2, coal)))
     wood = inv_count(Prototype.Wood)
-    if wood > 2:
+    if wood >= 1:
+        # burn what we hold — the kit's single wood is a real fuel item
+        # (gauntlet-9: 'wood > 2' guard left the kit drill dark for 3 min)
         return _touch(insert_item, Prototype.Wood, e,
-                      quantity=min(qty * 2, wood - 1, 10))
+                      quantity=max(1, min(qty * 2, wood, 10)))
     raise Exception("no fuel in inventory (coal or wood)")
 
 def _touch(fn, *a, **k):
@@ -347,7 +349,7 @@ def sk_mine_line(resource="iron", n=3):
             continue
         placed += 1
         try:
-            _touch(insert_item, Prototype.Coal, d, quantity=30)
+            _fuel(d, 30)
         except Exception:
             pass
         f = None
@@ -360,7 +362,7 @@ def sk_mine_line(resource="iron", n=3):
                 COAL_COLLECTORS.append((round(f.position.x), round(f.position.y)))
             else:
                 try:
-                    _touch(insert_item, Prototype.Coal, f, quantity=8)
+                    _fuel(f, 8)
                 except Exception:
                     pass
     print(f"placed {placed}/{n} drills with drop furnaces")
@@ -483,9 +485,14 @@ def sk_expand_smelting(n=4):
         if f:
             placed += 1
             try:
-                _touch(insert_item, Prototype.Coal, f, quantity=8)
+                _fuel(f, 6)
             except Exception:
                 pass
+            if inv_count(Prototype.IronOre) > 20:
+                try:
+                    _touch(insert_item, Prototype.IronOre, f, quantity=15)
+                except Exception:
+                    pass
     print(f"placed {placed} smelting furnaces (autopilot feeds them ore)")
 
 def sk_craft(item="IronGearWheel", n=1):
@@ -668,9 +675,8 @@ def sk_rocks():
     mined = 0
     # rocks live near spawn/crash site — check there FIRST; iron-adjacent
     # offsets last. Abort a spot if it turns out to be ore (patch), not rock.
-    spots = [Position(x=0, y=0), Position(x=15, y=15), Position(x=-15, y=-15),
-             Position(x=ip.x + 18, y=ip.y + 18),
-             Position(x=ip.x - 18, y=ip.y - 18)]
+    spots = [Position(x=0, y=0), Position(x=15, y=15),
+             Position(x=ip.x + 18, y=ip.y + 18)]
     for t in spots:
         pre_ore = inv_count(Prototype.IronOre) + inv_count(Prototype.CopperOre)
         pre_rock = inv_count(Prototype.Stone) + inv_count(Prototype.Coal)
@@ -880,25 +886,29 @@ SKILLS = {  # name -> (timeout_s, allowed arg keys)
 }
 
 DEFAULT_PLAN = [
-    # THE CHAMPION ROUTE: rocks fund the start, then babysit+reinvest
-    # cycles (scale_loop) exactly like the human plays the first five
-    # minutes; power once affordable; belts when the rows are long.
-    {"skill": "rocks", "args": {}},
-    {"skill": "gather", "args": {"iron": 24}},
-    {"skill": "bootstrap_place", "args": {}},
-    {"skill": "bootstrap_feed", "args": {}},
+    # THE OVEN LINE (champion's literal words: "run down a line of ovens,
+    # get all the metal, make miners out of them"): kit pair burning by
+    # 0:40, then a WALL of furnaces (10 pts per 5 stone — the cheapest
+    # points AND the smelting bandwidth), bulk ore hand-fed through them,
+    # drills crafted from the plate flood.
+    {"skill": "gather", "args": {"coal": 10}},
+    {"skill": "mine_line", "args": {"resource": "iron", "n": 1}},
+    {"skill": "gather", "args": {"stone": 40}},
+    {"skill": "expand_smelting", "args": {"n": 8}},
+    {"skill": "gather", "args": {"iron": 50, "coal": 15}},
+    {"skill": "keep_fed", "args": {}},
+    {"skill": "gather", "args": {"iron": 50}},
+    {"skill": "keep_fed", "args": {}},
     {"skill": "scale_loop", "args": {}},
     {"skill": "scale_loop", "args": {}},
     {"skill": "power_craft", "args": {}},
     {"skill": "power_build", "args": {}},
     {"skill": "scale_loop", "args": {}},
-    {"skill": "scale_loop", "args": {}},
     {"skill": "belt_line", "args": {}},
-    {"skill": "mine_line", "args": {"resource": "copper", "n": 3}},
     {"skill": "scale_loop", "args": {}},
+    {"skill": "mine_line", "args": {"resource": "copper", "n": 3}},
     {"skill": "lab", "args": {}},
     {"skill": "research", "args": {}},
-    {"skill": "scale_loop", "args": {}},
     {"skill": "scale_loop", "args": {}},
     {"skill": "scale_loop", "args": {}},
 ]
